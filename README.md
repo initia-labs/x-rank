@@ -53,6 +53,7 @@ Generate and preview the static site:
 
 ```sh
 bun run refresh       # fetch X data into ./data/snapshots.db
+bun run backfill -- --days 90 # one-time historical import (includes authored replies)
 bun run export        # write public/snapshot.json and public/snapshots/*
 bun run dev:static    # optional local UI preview using exported snapshots
 bun run build         # build ./dist for any static host
@@ -144,7 +145,7 @@ Good options:
   refresh if you are only retrying a deploy.
 - Local background publishing: configure `schedule` in `xrank.config.ts`, then run
   `bun run schedule:install -- --yes --load`. On macOS this writes and loads a
-  LaunchAgent; on Linux it prints a cron entry.
+  LaunchAgent; on Linux it installs a labeled cron entry.
 - GitHub Actions schedule: good for shared ownership; commit or upload the
   exported snapshots during the job, then deploy static assets.
 
@@ -185,8 +186,8 @@ cache TTL and optional daemon cadence.
 `bun run export` uses the existing local DB. Use `bun run export --refresh` when
 you explicitly want export to hit the X API first.
 
-Other commands: `bun run xrank --help` lists everything (`refresh`, `export`,
-`publish`, `cost`, `status`).
+Other commands: `bun run xrank --help` lists everything (`refresh`, `backfill`,
+`export`, `publish`, `cost`, `status`).
 
 ## Architecture
 

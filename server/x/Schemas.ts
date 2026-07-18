@@ -26,11 +26,17 @@ export const UserShape = Schema.Struct({
   public_metrics: def(UserPublicMetrics, {})
 })
 
+const ReferencedTweet = Schema.Struct({
+  id: Schema.String,
+  type: Schema.String
+})
+
 export const TweetShape = Schema.Struct({
   id: Schema.String,
   text: Schema.String,
   created_at: Schema.DateTimeUtcFromString,
   author_id: Schema.optional(Schema.String),
+  referenced_tweets: def(Schema.Array(ReferencedTweet), []),
   public_metrics: def(PublicMetrics, {})
 })
 export type Tweet = Schema.Schema.Type<typeof TweetShape>

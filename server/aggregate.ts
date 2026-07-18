@@ -14,6 +14,8 @@ import {
   earliestFollowersAll,
   firstRefresh,
   listAccounts,
+  postingActivityByAccount,
+  type PostingDayRow,
   tweetsAcrossAccountsBetween,
   type AccountRow,
   type DbClient,
@@ -26,6 +28,63 @@ const DAY_MS = 1000 * 60 * 60 * 24
 const TREND_DAYS = 7
 
 const dayKey = (timestampMs: number) => Math.floor(timestampMs / DAY_MS)
+
+interface PostingStreaks {
+  readonly current: number
+  readonly longest: number
+}
+
+const isWorkday = (day: number): boolean => {
+  const weekday = new Date(day * DAY_MS).getUTCDay()
+  return weekday >= 1 && weekday <= 5
+}
+
+const nextWorkday = (day: number): number => {
+  let next = day + 1
+  while (!isWorkday(next)) next += 1
+  return next
+}
+
+const previousWorkday = (day: number): number => {
+  let previous = day - 1
+  while (!isWorkday(previous)) previous -= 1
+  return previous
+}
+
+const postingStreaks = (days: ReadonlyArray<number>, capturedAt: number): PostingStreaks => {
+  const workdays = days.filter(isWorkday)
+  if (workdays.length === 0) return { current: 0, longest: 0 }
+  let run = 0
+  let longest = 0
+  let previous: number | undefined
+  for (const day of workdays) {
+    run = previous !== undefined && day === nextWorkday(previous) ? run + 1 : 1
+    longest = Math.max(longest, run)
+    previous = day
+  }
+  const today = dayKey(capturedAt)
+  const latest = workdays[workdays.length - 1]
+  const latestExpected = isWorkday(today) ? today : previousWorkday(today + 1)
+  const graceDay = isWorkday(today) ? previousWorkday(today) : undefined
+  const current = latest === latestExpected || latest === graceDay ? run : 0
+  return { current, longest }
+}
+
+const postingActivity = (
+  rows: ReadonlyArray<PostingDayRow>,
+  capturedAt: number,
+  days = 91
+): Account["postingActivity"] => {
+  const postsByDay = new Map(rows.map((row) => [row.day, row.posts]))
+  const today = dayKey(capturedAt)
+  return Array.from({ length: days }, (_, index) => {
+    const day = today - (days - 1 - index)
+    return {
+      date: new Date(day * DAY_MS).toISOString().slice(0, 10),
+      posts: postsByDay.get(day) ?? 0
+    }
+  })
+}
 
 const rosterAccounts = (db: DbClient): Effect.Effect<ReadonlyArray<AccountRow>> =>
   Effect.gen(function* () {
@@ -193,6 +252,8 @@ const accountToSnapshot = (
   tweets: ReadonlyArray<TweetRow>,
   followerSamples: ReadonlyArray<FollowerSampleRow>,
   earliestAllTime: number | undefined,
+  streaks: PostingStreaks,
+  activity: Account["postingActivity"],
   currentStart: number,
   currentEnd: number,
   previousStart: number,
@@ -223,6 +284,9 @@ const accountToSnapshot = (
     followers: followersNow,
     previousFollowers: followersPrev,
     previousGrowth: followersPrev - followersTwoBack,
+    currentPostingStreak: streaks.current,
+    longestPostingStreak: streaks.longest,
+    postingActivity: activity,
     stats: aggregateTweets(current),
     previousStats: aggregateTweets(previous),
     posts: sortPostsByEngagement(current, account.handle),
@@ -235,7 +299,8 @@ const accountToSnapshot = (
 export const buildSnapshot = (
   db: DbClient,
   window: WindowSpec,
-  capturedAt: number
+  capturedAt: number,
+  includeReplies = false
 ): Effect.Effect<SocialMetricsSnapshot> =>
   Effect.gen(function* () {
     const accountRows = yield* rosterAccounts(db)
@@ -257,14 +322,16 @@ export const buildSnapshot = (
     // queries. historyStart is used for the 30d sparkline; whichever is older wins.
     const followerSince = Math.min(previousStart, historyStart)
 
-    const [allTweets, followerHistoryByAccount, earliestByAccount] = yield* Effect.all(
+    const [queriedTweets, followerHistoryByAccount, earliestByAccount, postingDays] = yield* Effect.all(
       [
         tweetsAcrossAccountsBetween(db, queryStart, queryEnd),
         allFollowerHistorySince(db, followerSince),
-        earliestFollowersAll(db)
+        earliestFollowersAll(db),
+        postingActivityByAccount(db, capturedAt, includeReplies)
       ],
       { concurrency: "unbounded" }
     )
+    const allTweets = includeReplies ? queriedTweets : queriedTweets.filter((tweet) => tweet.is_reply === 0)
     const byAccount = Arr.groupBy(allTweets, (tweet) => tweet.account_id)
     const windowTweets = allTweets.filter((t) => t.created_at >= trendStart && t.created_at < currentEnd)
     const accounts = accountRows.map((row) =>
@@ -273,6 +340,11 @@ export const buildSnapshot = (
         byAccount[row.id] ?? [],
         followerHistoryByAccount.get(row.id) ?? [],
         earliestByAccount.get(row.id),
+        postingStreaks(
+          (postingDays.get(row.id) ?? []).map((day) => day.day),
+          capturedAt
+        ),
+        postingActivity(postingDays.get(row.id) ?? [], capturedAt),
         currentStart,
         currentEnd,
         previousStart,

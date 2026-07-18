@@ -79,7 +79,7 @@ const SnapshotGroup = HttpApiBuilder.group(SnapshotApi, "snapshot", (handlers) =
           if (!last) return yield* new ApiNoData({ message: "refresh produced no data" })
         }
         const window = windowFromQuery(query, last.captured_at)
-        return yield* buildSnapshot(db, window, last.captured_at)
+        return yield* buildSnapshot(db, window, last.captured_at, query.includeReplies ?? false)
       })
     )
     .handle("refresh", () =>

@@ -98,6 +98,7 @@ const persistTweets = (
         quotes: tweet.quotes,
         bookmarks: tweet.bookmarks,
         impressions: tweet.impressions,
+        is_reply: tweet.isReply ? 1 : 0,
         last_refreshed_at: capturedAt
       })
       return true
@@ -203,5 +204,41 @@ export const refreshAll = (db: DbClient): Effect.Effect<RefreshResult, XApiError
       tweetsWritten
     }
   }).pipe(Effect.withLogSpan("refresh.all"))
+
+export const backfillAll = (db: DbClient, days: number): Effect.Effect<RefreshResult, XApiError, XApi | CostTracker> =>
+  Effect.gen(function* () {
+    if (accountConfigs.length === 0) {
+      return yield* Effect.fail(
+        new XApiError({ message: "x-rank roster is empty. Add X handles to `roster` in xrank.config.ts." })
+      )
+    }
+    const api = yield* XApi
+    const tracker = yield* CostTracker
+    yield* tracker.reset()
+    const startedAt = Date.now()
+    const users = yield* api.lookupUsers(accountConfigs.map((config) => config.handle))
+    yield* persistUsers(db, users, startedAt)
+
+    const startTime = DateTime.subtractDuration(DateTime.makeUnsafe(startedAt), Duration.days(days))
+    const timelines = yield* Effect.forEach(users, (user) => api.userTimeline(user.id, { startTime }), {
+      concurrency: 3
+    })
+    const tweets = timelines.flat()
+    const handlesById = new Map(users.map((user) => [user.id, user.username]))
+    const tweetsWritten = yield* persistTweets(db, tweets, handlesById, startedAt)
+
+    const completedAt = Date.now()
+    const summary = yield* tracker.snapshot()
+    yield* recordRefresh(db, completedAt, summary)
+    yield* Effect.logInfo(
+      `backfill: ${days} days, ${users.length} users, ${tweetsWritten} posts` +
+        ` · charged ${summary.userReadsCharged}u + ${summary.postReadsCharged}p = ${formatUsd(summary.estCostUsd)}`
+    )
+    return {
+      capturedAt: DateTime.makeUnsafe(completedAt),
+      accountsRefreshed: users.length,
+      tweetsWritten
+    }
+  }).pipe(Effect.withLogSpan("backfill.all"))
 
 export { XApiError }

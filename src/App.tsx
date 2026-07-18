@@ -5,7 +5,7 @@ import { FunZone } from "./FunZone.tsx"
 import type { MetricKey } from "./model.ts"
 import { OverallLeaderboard } from "./ui/Leaderboard.tsx"
 import { MetricCard } from "./ui/MetricCard.tsx"
-import { JayDancer, RangeControls } from "./ui/RangeControls.tsx"
+import { RangeControls } from "./ui/RangeControls.tsx"
 import { SectionHeading } from "./ui/parts.tsx"
 import { TopPostCard } from "./ui/TopPostCard.tsx"
 import { TrendChart } from "./ui/TrendChart.tsx"
@@ -14,7 +14,6 @@ import xrankConfig from "../xrank.config.ts"
 export function App() {
   const [expandedCards, setExpandedCards] = useAtom(expandedCardsAtom)
   const dashboard = useAtomSuspense(dashboardAtom).value
-  const jayMode = dashboard.score === "jay"
   const overall = dashboard.metrics.find((metric) => metric.definition.key === "overall")
   const secondaryCards = dashboard.metrics.filter((metric) => metric.definition.key !== "overall")
 
@@ -30,9 +29,20 @@ export function App() {
     <TooltipPrimitive.Provider delayDuration={120} skipDelayDuration={300}>
       <main className="app-shell">
         <section className="hero-panel">
-          <div className="hero-copy">
-            <p className="eyebrow">X leaderboard · {dashboard.rangeLabel}</p>
-            <h1>{xrankConfig.title ?? "X Rank"}</h1>
+          <div className="brand-lockup">
+            <a
+              aria-label="Visit Initia"
+              className="brand-mark"
+              href="https://initia.xyz"
+              rel="noreferrer"
+              target="_blank"
+            >
+              <img alt="" src="/initia-mark.svg" />
+            </a>
+            <div className="hero-copy">
+              <p className="eyebrow">X Leaderboard · {dashboard.rangeLabel}</p>
+              <h1>{xrankConfig.title ?? "Initia"}</h1>
+            </div>
           </div>
           <div className="sync-card">
             <strong>
@@ -44,7 +54,6 @@ export function App() {
         </section>
 
         <RangeControls dashboard={dashboard} />
-        {jayMode && <JayDancer />}
 
         <section className="summary-grid" aria-label={`${dashboard.rangeLabel} summary`}>
           {dashboard.summary.map((stat) => (

@@ -33,6 +33,7 @@ export interface XTweet {
   readonly quotes: number
   readonly bookmarks: number
   readonly impressions: number
+  readonly isReply: boolean
 }
 
 export interface SearchOptions {
@@ -47,6 +48,11 @@ export interface SearchResult {
   readonly complete: boolean
 }
 
+export interface TimelineOptions {
+  readonly startTime: DateTime.Utc
+  readonly maxPages?: number
+}
+
 export namespace XApi {
   export interface Service {
     readonly lookupUsers: (handles: ReadonlyArray<string>) => Effect.Effect<ReadonlyArray<XUser>, XApiError>
@@ -54,6 +60,7 @@ export namespace XApi {
       handles: ReadonlyArray<string>,
       options: SearchOptions
     ) => Effect.Effect<SearchResult, XApiError>
+    readonly userTimeline: (userId: string, options: TimelineOptions) => Effect.Effect<ReadonlyArray<XTweet>, XApiError>
     readonly lookupTweets: (ids: ReadonlyArray<string>) => Effect.Effect<ReadonlyArray<XTweet>, XApiError>
   }
 }
@@ -73,7 +80,7 @@ const wrapError =
 const buildQuery = (handles: ReadonlyArray<string>): Effect.Effect<string, XApiError> => {
   const clauses = handles.map((handle) => `from:${normalizeHandle(handle)}`)
   const fromClause = clauses.length === 1 ? clauses[0] : `(${clauses.join(" OR ")})`
-  const query = `${fromClause} -is:retweet -is:reply`
+  const query = `${fromClause} -is:retweet`
   if (query.length > QUERY_LENGTH_LIMIT) {
     return Effect.fail(
       new XApiError({
@@ -133,7 +140,8 @@ const decodeRow = (tweet: Tweet): XTweet => ({
   reposts: tweet.public_metrics.retweet_count,
   quotes: tweet.public_metrics.quote_count,
   bookmarks: tweet.public_metrics.bookmark_count,
-  impressions: tweet.public_metrics.impression_count
+  impressions: tweet.public_metrics.impression_count,
+  isReply: tweet.referenced_tweets.some((reference) => reference.type === "replied_to")
 })
 
 const make = (token: Redacted.Redacted<string>) =>
@@ -170,7 +178,7 @@ const make = (token: Redacted.Redacted<string>) =>
         const query = yield* buildQuery(handles)
         const baseParams: Record<string, string> = {
           query,
-          "tweet.fields": "public_metrics,created_at,author_id",
+          "tweet.fields": "public_metrics,created_at,author_id,referenced_tweets",
           max_results: "100"
         }
         if (options.sinceId) baseParams.since_id = options.sinceId
@@ -231,6 +239,48 @@ const make = (token: Redacted.Redacted<string>) =>
       }).pipe(Effect.mapError(wrapError(`searchRecent failed for ${handles.length} handles`)))
     }
 
+    const userTimeline: XApi.Service["userTimeline"] = (userId, options) =>
+      Effect.gen(function* () {
+        const baseParams: Record<string, string> = {
+          exclude: "retweets",
+          "tweet.fields": "public_metrics,created_at,author_id,referenced_tweets",
+          max_results: "100",
+          start_time: DateTime.formatIso(options.startTime)
+        }
+        const maxPages = options.maxPages ?? 32
+
+        interface PageState {
+          readonly token: string | undefined
+          readonly page: number
+        }
+
+        const fetchPage = (paginationToken: string | undefined) =>
+          client
+            .get(`/users/${userId}/tweets`, {
+              urlParams: paginationToken ? { ...baseParams, pagination_token: paginationToken } : baseParams
+            })
+            .pipe(Effect.flatMap(decodeSearch))
+
+        return yield* Stream.paginate({ token: undefined, page: 0 } as PageState, (state) =>
+          fetchPage(state.token).pipe(
+            Effect.map((response): readonly [ReadonlyArray<XTweet>, Option.Option<PageState>] => {
+              const tweets = response.data.map(decodeRow)
+              const next = response.meta?.next_token
+              const nextPage = state.page + 1
+              return [
+                tweets,
+                next && nextPage < maxPages
+                  ? Option.some<PageState>({ token: next, page: nextPage })
+                  : Option.none<PageState>()
+              ]
+            })
+          )
+        ).pipe(
+          Stream.runCollect,
+          Effect.tap((tweets) => tracker.recordPosts(tweets.map((tweet) => tweet.id)))
+        )
+      }).pipe(Effect.mapError(wrapError(`userTimeline failed for user ${userId}`)))
+
     const lookupTweets: XApi.Service["lookupTweets"] = (ids) => {
       if (ids.length === 0) return Effect.succeed([] as ReadonlyArray<XTweet>)
       return Effect.forEach(
@@ -240,7 +290,7 @@ const make = (token: Redacted.Redacted<string>) =>
             .get("/tweets", {
               urlParams: {
                 ids: batch.join(","),
-                "tweet.fields": "public_metrics,created_at,author_id"
+                "tweet.fields": "public_metrics,created_at,author_id,referenced_tweets"
               }
             })
             .pipe(
@@ -255,7 +305,7 @@ const make = (token: Redacted.Redacted<string>) =>
       )
     }
 
-    return XApi.of({ lookupUsers, searchRecent, lookupTweets })
+    return XApi.of({ lookupUsers, searchRecent, userTimeline, lookupTweets })
   })
 
 export const layer = (

@@ -32,20 +32,25 @@ export function OverallLeaderboard({
           style={winnerStyle}
           type="button"
         >
-          <div className="winner-photo">
+          <span className="winner-photo">
             {winnerBg ? (
               <img alt={winner.account.name} src={winnerBg} />
             ) : (
-              <div className="winner-photo-fallback" style={{ background: winner.account.color }}>
+              <span className="winner-photo-fallback" style={{ background: winner.account.color }}>
                 {initials(winner.account.name)}
-              </div>
+              </span>
             )}
             <span className="winner-rank-overlay">#1</span>
-          </div>
+          </span>
           <span className="winner-identity">
-            <span className="eyebrow">Leading this week</span>
+            <span className="eyebrow">Leading · {scoreLabel}</span>
             <span className="winner-name">{winner.account.name}</span>
             <span className="winner-meta">@{winner.account.handle}</span>
+            {winner.account.currentPostingStreak >= 3 && (
+              <span className="winner-streak">
+                {winner.account.currentPostingStreak}d workday streak · best {winner.account.longestPostingStreak}d
+              </span>
+            )}
             {catchphrase && <span className="winner-catchphrase">{catchphrase}</span>}
           </span>
           <span className="winner-score">
@@ -88,7 +93,7 @@ function LeaderboardTable({
           <Hint label={HINTS.impressions}>Impressions</Hint>
         </span>
         <span className="num-cell">
-          <Hint label={HINTS.posts}>Posts</Hint>
+          <Hint label={HINTS.posts}>Tweets</Hint>
         </span>
         <span className="num-cell">
           <Hint label={HINTS.rate}>Rate</Hint>
@@ -96,14 +101,14 @@ function LeaderboardTable({
       </div>
       {card.entries.map((entry) => {
         const { performance } = entry
-        const noActivity = performance.stats.posts === 0
+        const noActivity = performance.stats.posts === 0 && entry.value === 0
         return (
           <AccountModal account={entry.account} entry={entry} key={entry.account.id}>
             <button className="table-row table-row-button" type="button">
               <RankBadge entry={entry} />
               <AccountIdentity account={entry.account} />
               {noActivity ? (
-                <span className="empty-row">No posts this week</span>
+                <span className="empty-row">No tweets in this window</span>
               ) : (
                 <>
                   <span
@@ -133,6 +138,7 @@ function VersusPanel({
   readonly entries: ReadonlyArray<LeaderboardEntry>
   readonly scoreLabel: string
 }) {
+  if (scoreLabel === "Workday streak") return null
   if (entries.length < 3) return null
   const goliath = entries[0]
   const runnerUp = entries[1]

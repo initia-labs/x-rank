@@ -163,7 +163,7 @@ function RhythmClock({ accounts }: { readonly accounts: ReadonlyArray<Account> }
             <path
               key={hour}
               d={`M ${x1} ${y1} L ${x2} ${y2} A ${r} ${r} 0 0 1 ${x3} ${y3} L ${x4} ${y4} A ${innerR} ${innerR} 0 0 0 ${x1} ${y1} Z`}
-              fill={hour === peakHour ? "var(--accent)" : "rgba(52, 211, 153, 0.55)"}
+              fill={hour === peakHour ? "var(--accent)" : "rgba(81, 220, 251, 0.55)"}
               stroke="#000"
               strokeWidth={1}
             >

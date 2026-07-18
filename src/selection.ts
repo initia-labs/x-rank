@@ -7,6 +7,7 @@ const rangeParam = Atom.searchParam("range", { schema: DateRange })
 const modeParam = Atom.searchParam("mode", { schema: RangeMode })
 const weekOfParam = Atom.searchParam("weekOf", { schema: Schema.String })
 const scoreParam = Atom.searchParam("score", { schema: ScoreMetric })
+const repliesParam = Atom.searchParam("replies", { schema: Schema.Literals(["true"]) })
 
 export const rangeAtom = Atom.writable(
   (get) => Option.getOrElse(get(rangeParam), () => "7d" as const),
@@ -30,8 +31,13 @@ export const weekOfAtom = Atom.writable(
 )
 
 export const scoreAtom = Atom.writable(
-  (get) => Option.getOrElse(get(scoreParam), () => "engagements" as const),
+  (get) => Option.getOrElse(get(scoreParam), () => "posts" as const),
   (ctx, score: ScoreMetric) => ctx.set(scoreParam, Option.some(score))
+)
+
+export const includeRepliesAtom = Atom.writable(
+  (get) => Option.isSome(get(repliesParam)),
+  (ctx, includeReplies: boolean) => ctx.set(repliesParam, includeReplies ? Option.some("true") : Option.none())
 )
 
 export interface Selection {
@@ -39,13 +45,15 @@ export interface Selection {
   readonly range: DateRange
   readonly weekOf: string | undefined
   readonly score: ScoreMetric
+  readonly includeReplies: boolean
 }
 
 export const selectionAtom: Atom.Atom<Selection> = Atom.make((get) => ({
   mode: get(modeAtom),
   range: get(rangeAtom),
   weekOf: get(weekOfAtom),
-  score: get(scoreAtom)
+  score: get(scoreAtom),
+  includeReplies: get(includeRepliesAtom)
 }))
 
 export interface SelectionView extends Selection {

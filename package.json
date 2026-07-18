@@ -14,6 +14,7 @@
     "config": "bun scripts/config.ts",
     "xrank": "bun bin/xrank.ts",
     "refresh": "bun bin/xrank.ts refresh",
+    "backfill": "bun bin/xrank.ts backfill",
     "export": "bun bin/xrank.ts export",
     "publish": "bun bin/xrank.ts publish",
     "cost": "bun bin/xrank.ts cost",

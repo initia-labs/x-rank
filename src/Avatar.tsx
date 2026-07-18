@@ -32,8 +32,8 @@ export function Avatar({
   }
   const fallbackClass = variant === "feed" ? `${className} feed-avatar-fallback` : className
   return (
-    <div className={fallbackClass} style={{ ...dimStyle, background: account.color }}>
+    <span className={fallbackClass} style={{ ...dimStyle, background: account.color }}>
       {initials(account.name)}
-    </div>
+    </span>
   )
 }

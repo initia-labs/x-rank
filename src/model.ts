@@ -25,6 +25,7 @@ export interface MetricSnapshot {
   readonly engagements: number
   readonly engagementRate: number
   readonly growth: number
+  readonly weeklyPosts: number
 }
 
 export interface AccountPerformance extends MetricSnapshot {
@@ -102,13 +103,13 @@ const overallFor = (score: ScoreMetric): MetricDefinition => {
     key: "overall",
     label: def.label,
     description: def.description,
-    unit: "count",
+    unit: score === "streak" ? "days" : "count",
     value: def.value
   }
 }
 
 export const metricDefinitions: ReadonlyArray<MetricDefinition> = [
-  overallFor("engagements"),
+  overallFor("posts"),
   {
     key: "growth",
     label: "Growth",
@@ -177,20 +178,21 @@ const capturedAtFormatter = new Intl.DateTimeFormat("en", {
 
 const safeRate = (engagements: number, impressions: number) => (impressions === 0 ? 0 : engagements / impressions)
 
-const buildSnapshot = (stats: EngagementStats, growth: number): MetricSnapshot => {
+const buildSnapshot = (stats: EngagementStats, growth: number, windowDays: number): MetricSnapshot => {
   const engagements = totalEngagements(stats)
   return {
     stats,
     engagements,
     engagementRate: safeRate(engagements, stats.impressions),
-    growth
+    growth,
+    weeklyPosts: (stats.posts * 7) / windowDays
   }
 }
 
-const livePerformance = (account: Account): AccountPerformance => ({
+const livePerformance = (account: Account, windowDays: number): AccountPerformance => ({
   account,
-  ...buildSnapshot(account.stats, account.followers - account.previousFollowers),
-  previous: buildSnapshot(account.previousStats, account.previousGrowth)
+  ...buildSnapshot(account.stats, account.followers - account.previousFollowers, windowDays),
+  previous: buildSnapshot(account.previousStats, account.previousGrowth, windowDays)
 })
 
 const scaledPerformance = (account: Account, days: number): AccountPerformance => {
@@ -199,11 +201,13 @@ const scaledPerformance = (account: Account, days: number): AccountPerformance =
     account,
     ...buildSnapshot(
       scaleStats(account.stats, multiplier, days),
-      Math.round((account.followers - account.previousFollowers) * multiplier)
+      Math.round((account.followers - account.previousFollowers) * multiplier),
+      days
     ),
     previous: buildSnapshot(
       scaleStats(account.previousStats, multiplier, days),
-      Math.round(account.previousGrowth * multiplier)
+      Math.round(account.previousGrowth * multiplier),
+      days
     )
   }
 }
@@ -309,7 +313,7 @@ const buildSummary = (visible: ReadonlyArray<AccountPerformance>): ReadonlyArray
   const previousRate = safeRate(previousTotals.engagements, previousTotals.impressions)
   return [
     {
-      label: "Total posts",
+      label: "Total tweets",
       value: formatNumber(totals.posts),
       delta: formatVsPrior(totals.posts, previousTotals.posts),
       tone: "good"
@@ -356,7 +360,9 @@ const buildCoverageLabel = (snapshot: SocialMetricsSnapshot, window: WindowSpec)
 export const buildDashboard = (snapshot: SocialMetricsSnapshot, view: SelectionView): DashboardModel => {
   const { window, score } = view
   const performance =
-    snapshot.source === "x" ? livePerformance : (account: Account) => scaledPerformance(account, window.days)
+    snapshot.source === "x"
+      ? (account: Account) => livePerformance(account, window.days)
+      : (account: Account) => scaledPerformance(account, window.days)
   const performances = snapshot.accounts.map(performance)
   const growthSubnote = buildGrowthSubnote(
     DateTime.toEpochMillis(snapshot.followerDataSince),

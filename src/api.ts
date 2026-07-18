@@ -7,7 +7,7 @@ export type DateRange = Schema.Schema.Type<typeof DateRange>
 export const RangeMode = Schema.Literals(["rolling", "weekly"])
 export type RangeMode = Schema.Schema.Type<typeof RangeMode>
 
-export const ScoreMetric = Schema.Literals(["engagements", "impressions", "jay"])
+export const ScoreMetric = Schema.Literals(["posts", "streak", "engagements", "impressions"])
 export type ScoreMetric = Schema.Schema.Type<typeof ScoreMetric>
 
 export const Source = Schema.Literals(["fake", "x"])
@@ -52,6 +52,12 @@ export const FollowerSample = Schema.Struct({
 })
 export type FollowerSample = Schema.Schema.Type<typeof FollowerSample>
 
+export const PostingActivityDay = Schema.Struct({
+  date: Schema.String,
+  posts: Schema.Number
+})
+export type PostingActivityDay = Schema.Schema.Type<typeof PostingActivityDay>
+
 export const Account = Schema.Struct({
   id: Schema.String,
   name: Schema.String,
@@ -62,6 +68,9 @@ export const Account = Schema.Struct({
   followers: Schema.Number,
   previousFollowers: Schema.Number,
   previousGrowth: Schema.Number,
+  currentPostingStreak: Schema.Number,
+  longestPostingStreak: Schema.Number,
+  postingActivity: Schema.Array(PostingActivityDay),
   stats: EngagementStats,
   previousStats: EngagementStats,
   posts: Schema.Array(TopPost),
@@ -116,7 +125,8 @@ export const SnapshotApi = HttpApi.make("SnapshotApi").add(
         query: {
           range: DateRange,
           mode: Schema.optional(RangeMode),
-          weekOf: Schema.optional(Schema.String)
+          weekOf: Schema.optional(Schema.String),
+          includeReplies: Schema.optional(Schema.Boolean)
         },
         success: SocialMetricsSnapshot,
         error: [NoData, Upstream]

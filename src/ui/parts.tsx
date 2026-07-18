@@ -23,7 +23,7 @@ export function Hint({ children, label }: { readonly children: ReactNode; readon
 export const HINTS = {
   engagements: "Likes + replies + reposts + quotes + bookmarks. Sum of public reactions.",
   impressions: "Views — how many times the post showed up on a timeline.",
-  posts: "Number of original posts (excludes retweets and replies).",
+  posts: "Number of included tweets. Retweets are excluded; authored replies are optional.",
   rate: "Engagement rate: engagements ÷ impressions.",
   growth: "Net follower change since the previous refresh window.",
   reach: "Total impressions across all of the user's posts.",
@@ -50,22 +50,22 @@ export function AccountIdentity({
   readonly compact?: boolean
 }) {
   return (
-    <div className={compact ? "account-identity compact" : "account-identity"}>
+    <span className={compact ? "account-identity compact" : "account-identity"}>
       <Avatar account={account} />
-      <div>
+      <span className="account-copy">
         <strong>{account.name}</strong>
         <span>@{account.handle}</span>
-      </div>
-    </div>
+      </span>
+    </span>
   )
 }
 
 export function RankBadge({ entry }: { readonly entry: LeaderboardEntry }) {
   if (entry.value === 0) {
     return (
-      <div className="rank-cell rank-empty">
+      <span className="rank-cell rank-empty">
         <strong>—</strong>
-      </div>
+      </span>
     )
   }
   const change = entry.rankChange
@@ -74,10 +74,10 @@ export function RankBadge({ entry }: { readonly entry: LeaderboardEntry }) {
   const label = change === "new" ? "new" : change === 0 ? "" : `${change > 0 ? "↑" : "↓"}${Math.abs(change)}`
 
   return (
-    <div className="rank-cell">
+    <span className="rank-cell">
       <strong>#{entry.rank}</strong>
       {showChange && <span className={direction}>{label}</span>}
-    </div>
+    </span>
   )
 }
 

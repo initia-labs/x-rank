@@ -28,6 +28,7 @@ export interface TweetRow {
   readonly quotes: number
   readonly bookmarks: number
   readonly impressions: number
+  readonly is_reply: number
 }
 
 export interface TweetWrite extends TweetRow {
@@ -80,6 +81,7 @@ const initializeDb = (db: DbClient) =>
         quotes INTEGER NOT NULL,
         bookmarks INTEGER NOT NULL,
         impressions INTEGER NOT NULL,
+        is_reply INTEGER NOT NULL DEFAULT 0,
         last_refreshed_at INTEGER NOT NULL DEFAULT 0
       )
     `.pipe(Effect.orDie)
@@ -128,6 +130,7 @@ const initializeDb = (db: DbClient) =>
     `.pipe(Effect.orDie)
 
     yield* addColumnIfMissing(db, "tweets", "last_refreshed_at", "INTEGER NOT NULL DEFAULT 0")
+    yield* addColumnIfMissing(db, "tweets", "is_reply", "INTEGER NOT NULL DEFAULT 0")
     yield* db`DROP INDEX IF EXISTS tweets_refresh_idx`.pipe(Effect.orDie)
     yield* addColumnIfMissing(db, "accounts", "profile_image_url", "TEXT")
     yield* addColumnIfMissing(db, "refreshes", "user_reads_charged", "INTEGER NOT NULL DEFAULT 0")
@@ -187,8 +190,8 @@ export const upsertAccount = (db: DbClient, row: AccountRow): Effect.Effect<void
 
 export const upsertTweet = (db: DbClient, row: TweetWrite): Effect.Effect<void> =>
   db`
-    INSERT INTO tweets (id, account_id, created_at, text, url, likes, replies, reposts, quotes, bookmarks, impressions, last_refreshed_at)
-    VALUES (${row.id}, ${row.account_id}, ${row.created_at}, ${row.text}, ${row.url}, ${row.likes}, ${row.replies}, ${row.reposts}, ${row.quotes}, ${row.bookmarks}, ${row.impressions}, ${row.last_refreshed_at})
+    INSERT INTO tweets (id, account_id, created_at, text, url, likes, replies, reposts, quotes, bookmarks, impressions, is_reply, last_refreshed_at)
+    VALUES (${row.id}, ${row.account_id}, ${row.created_at}, ${row.text}, ${row.url}, ${row.likes}, ${row.replies}, ${row.reposts}, ${row.quotes}, ${row.bookmarks}, ${row.impressions}, ${row.is_reply}, ${row.last_refreshed_at})
     ON CONFLICT(id) DO UPDATE SET
       likes = excluded.likes,
       replies = excluded.replies,
@@ -196,6 +199,7 @@ export const upsertTweet = (db: DbClient, row: TweetWrite): Effect.Effect<void> 
       quotes = excluded.quotes,
       bookmarks = excluded.bookmarks,
       impressions = excluded.impressions,
+      is_reply = excluded.is_reply,
       last_refreshed_at = excluded.last_refreshed_at
   `.pipe(Effect.asVoid, Effect.orDie)
 
@@ -416,6 +420,34 @@ export const tweetsAcrossAccountsBetween = (
     WHERE created_at >= ${startMs} AND created_at < ${endMs}
     ORDER BY created_at DESC
   `.pipe(Effect.orDie)
+
+export interface PostingDayRow {
+  readonly day: number
+  readonly posts: number
+}
+
+export const postingActivityByAccount = (
+  db: DbClient,
+  capturedAt: number,
+  includeReplies: boolean
+): Effect.Effect<ReadonlyMap<string, ReadonlyArray<PostingDayRow>>> =>
+  Effect.gen(function* () {
+    const rows = yield* db<{ account_id: string; day: number; posts: number }>`
+      SELECT account_id, CAST(created_at / ${DAY_MS} AS INTEGER) AS day, COUNT(*) AS posts
+      FROM tweets
+      WHERE created_at < ${capturedAt}
+        AND (${includeReplies ? 1 : 0} = 1 OR is_reply = 0)
+      GROUP BY account_id, day
+      ORDER BY account_id ASC, day ASC
+    `.pipe(Effect.orDie)
+    const byAccount = new Map<string, Array<PostingDayRow>>()
+    for (const row of rows) {
+      const days = byAccount.get(row.account_id) ?? []
+      days.push({ day: row.day, posts: row.posts })
+      byAccount.set(row.account_id, days)
+    }
+    return byAccount
+  })
 
 export interface FollowerSampleRow {
   readonly captured_at: number

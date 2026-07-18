@@ -7,6 +7,12 @@ import { formatMetric, formatNumber, totalEngagements } from "../model.ts"
 import { Sparkline } from "./parts.tsx"
 
 const dayMonthFormatter = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" })
+const activityDateFormatter = new Intl.DateTimeFormat("en-US", {
+  month: "short",
+  day: "numeric",
+  year: "numeric",
+  timeZone: "UTC"
+})
 
 const HISTORY_W = 540
 const HISTORY_H = 90
@@ -60,7 +66,7 @@ export function AccountModal({
 
           <div className="modal-stats">
             <div className="modal-stat">
-              <span>Posts</span>
+              <span>Tweets</span>
               <strong>{formatNumber(account.stats.posts)}</strong>
             </div>
             <div className="modal-stat">
@@ -75,11 +81,26 @@ export function AccountModal({
               <span>Rate</span>
               <strong>{formatMetric(entry.performance.engagementRate, "percent")}</strong>
             </div>
+            <div className="modal-stat streak-stat">
+              <span>Workday streak</span>
+              <strong
+                className={
+                  account.currentPostingStreak > 0 && account.currentPostingStreak === account.longestPostingStreak
+                    ? "personal-best"
+                    : undefined
+                }
+              >
+                {account.currentPostingStreak > 0 ? `${account.currentPostingStreak}d` : "—"}
+              </strong>
+              <small>best {account.longestPostingStreak}d · Mon–Fri</small>
+            </div>
             <div className="modal-stat">
               <span>7d shape</span>
               <Sparkline values={account.dailyEngagement} />
             </div>
           </div>
+
+          <PostingHeatmap account={account} />
 
           <FollowerHistoryPanel account={account} />
 
@@ -120,6 +141,73 @@ export function AccountModal({
         </DialogPrimitive.Content>
       </DialogPrimitive.Portal>
     </DialogPrimitive.Root>
+  )
+}
+
+function PostingHeatmap({ account }: { readonly account: Account }) {
+  const activity = account.postingActivity
+  const totalPosts = activity.reduce((sum, day) => sum + day.posts, 0)
+  const activeDays = activity.filter((day) => day.posts > 0).length
+  const maxPosts = Math.max(0, ...activity.map((day) => day.posts))
+  const weekendPosts = activity.reduce((sum, day) => {
+    const weekday = new Date(`${day.date}T00:00:00Z`).getUTCDay()
+    return weekday === 0 || weekday === 6 ? sum + day.posts : sum
+  }, 0)
+  const firstDay = activity[0]
+  const leadingEmptyDays = firstDay ? new Date(`${firstDay.date}T00:00:00Z`).getUTCDay() : 0
+  const level = (posts: number) => (posts === 0 || maxPosts === 0 ? 0 : Math.max(1, Math.ceil((posts / maxPosts) * 4)))
+
+  return (
+    <section
+      className="posting-heatmap"
+      aria-label={`${totalPosts} posts across ${activeDays} days in the last 90 days`}
+    >
+      <header className="posting-heatmap-header">
+        <span>Posting activity · 90 days</span>
+        <span>
+          {formatNumber(totalPosts)} posts · {activeDays} active days
+        </span>
+      </header>
+      <div className="posting-heatmap-scroll">
+        <div className="posting-heatmap-body">
+          <div className="posting-weekdays" aria-hidden="true">
+            <span className="weekend">Sun</span>
+            <span>Mon</span>
+            <span>Wed</span>
+            <span>Fri</span>
+            <span className="weekend">Sat</span>
+          </div>
+          <div className="posting-cells" role="img" aria-label={`Daily posting activity for @${account.handle}`}>
+            {Array.from({ length: leadingEmptyDays }, (_, index) => (
+              <span className="posting-cell spacer" aria-hidden="true" key={`spacer-${index}`} />
+            ))}
+            {activity.map((day) => {
+              const label = `${day.posts} ${day.posts === 1 ? "post" : "posts"} on ${activityDateFormatter.format(new Date(day.date))}`
+              return (
+                <span className="posting-cell" data-level={level(day.posts)} key={day.date} title={label}>
+                  <span className="sr-only">{label}</span>
+                </span>
+              )
+            })}
+          </div>
+        </div>
+      </div>
+      <div className="posting-heatmap-footer">
+        <span
+          className="posting-weekend-count"
+          title="Weekend tweets count toward Tweets / week but Saturday and Sunday are skipped for streaks."
+        >
+          {weekendPosts} weekend tweets · weekends don't break streaks
+        </span>
+        <div className="posting-legend" aria-hidden="true">
+          <span>Less</span>
+          {[0, 1, 2, 3, 4].map((value) => (
+            <span className="posting-cell" data-level={value} key={value} />
+          ))}
+          <span>More</span>
+        </div>
+      </div>
+    </section>
   )
 }
 

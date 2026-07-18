@@ -25,10 +25,14 @@ function DashboardLoading() {
   return (
     <main className="app-shell">
       <section className="hero-panel">
-        <div className="hero-copy">
-          <p className="eyebrow">X leaderboard</p>
-          <h1>{xrankConfig.title ?? "X Rank"}</h1>
-          <p className="hero-text">Loading metrics snapshot…</p>
+        <div className="brand-lockup">
+          <div className="brand-mark">
+            <img alt="" src="/initia-mark.svg" />
+          </div>
+          <div className="hero-copy">
+            <p className="eyebrow">X Leaderboard · Last 7 days</p>
+            <h1>{xrankConfig.title ?? "Initia"}</h1>
+          </div>
         </div>
       </section>
     </main>

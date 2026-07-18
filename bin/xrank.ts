@@ -12,7 +12,7 @@ import { buildSnapshot } from "../server/aggregate.ts"
 import { AppConfig, AppConfigLive, accountConfigs } from "../server/config.ts"
 import { CostTrackerLive, formatUsd, PRICE_PER_POST_READ_USD, PRICE_PER_USER_READ_USD } from "../server/cost.ts"
 import { Db, DbLive, costByDay, costSince, lastRefresh } from "../server/db.ts"
-import { refreshAll } from "../server/refresh.ts"
+import { backfillAll, refreshAll } from "../server/refresh.ts"
 import { layerLive, XApiError } from "../server/x/XApi.ts"
 
 const OUTPUT_PATH = "public/snapshot.json"
@@ -48,17 +48,31 @@ const runRefresh = Effect.gen(function* () {
   )
 })
 
+const runBackfill = (days: number) =>
+  Effect.gen(function* () {
+    const db = yield* Db
+    const token = yield* requireToken
+    return yield* backfillAll(db, days).pipe(
+      Effect.provide(layerLive(Redacted.make(token)).pipe(Layer.provideMerge(CostTrackerLive))),
+      Effect.catch((cause: XApiError) => {
+        const detail = cause.cause === undefined ? "" : `\n  cause: ${JSON.stringify(cause.cause, null, 2)}`
+        return Effect.die(new Error(`backfill failed: ${cause.message}${detail}`))
+      })
+    )
+  })
+
 const writeOneSnapshot = (
   db: Db,
   capturedAt: number,
   mode: RangeMode,
   range: DateRange,
   weekOf: string | undefined,
-  filePath: string
+  filePath: string,
+  includeReplies = false
 ) =>
   Effect.gen(function* () {
     const window = buildWindow(mode, range, weekOf, capturedAt)
-    const snapshot = yield* buildSnapshot(db, window, capturedAt)
+    const snapshot = yield* buildSnapshot(db, window, capturedAt, includeReplies)
     const encoded = Schema.encodeSync(SocialMetricsSnapshot)(snapshot)
     mkdirSync(dirname(filePath), { recursive: true })
     writeFileSync(filePath, JSON.stringify(encoded))
@@ -79,16 +93,22 @@ const writeSnapshot = Effect.gen(function* () {
 
   mkdirSync(SNAPSHOT_DIR, { recursive: true })
   // Per-window snapshots. Static-mode client picks one based on the URL state.
-  for (const range of ROLLING_RANGES) {
-    const path = `${SNAPSHOT_DIR}/rolling-${range}.json`
-    yield* writeOneSnapshot(db, capturedAt, "rolling", range, undefined, path)
-    yield* Console.log(`  · ${path}`)
+  for (const includeReplies of [false, true]) {
+    for (const range of ROLLING_RANGES) {
+      const suffix = includeReplies ? "-with-replies" : ""
+      const path = `${SNAPSHOT_DIR}/rolling-${range}${suffix}.json`
+      yield* writeOneSnapshot(db, capturedAt, "rolling", range, undefined, path, includeReplies)
+      yield* Console.log(`  · ${path}`)
+    }
   }
   const weeks = recentWeeks(capturedAt, WEEKLY_LOOKBACK)
-  for (const week of weeks) {
-    const path = `${SNAPSHOT_DIR}/weekly-${week.iso}.json`
-    yield* writeOneSnapshot(db, capturedAt, "weekly", "7d", week.iso, path)
-    yield* Console.log(`  · ${path}`)
+  for (const includeReplies of [false, true]) {
+    for (const week of weeks) {
+      const suffix = includeReplies ? "-with-replies" : ""
+      const path = `${SNAPSHOT_DIR}/weekly-${week.iso}${suffix}.json`
+      yield* writeOneSnapshot(db, capturedAt, "weekly", "7d", week.iso, path, includeReplies)
+      yield* Console.log(`  · ${path}`)
+    }
   }
   // Manifest so the client knows which weeks are pre-rendered.
   const manifest = {
@@ -124,6 +144,25 @@ const refreshCommand = Command.make(
       )
     })
 ).pipe(Command.withDescription("Refresh tweet + user data from the X API"))
+
+const backfillCommand = Command.make(
+  "backfill",
+  {
+    days: Flag.integer("days").pipe(
+      Flag.withDescription("Historical window in days (default: 90)"),
+      Flag.withDefault(90)
+    )
+  },
+  ({ days }) =>
+    Effect.gen(function* () {
+      if (days < 1 || days > 365) return yield* Effect.die(new Error("--days must be between 1 and 365"))
+      yield* Console.log(`backfilling ${days} days from X user timelines…`)
+      const result = yield* runBackfill(days)
+      yield* Console.log(
+        `backfilled ${result.accountsRefreshed} accounts · ${result.tweetsWritten} posts · ${result.capturedAt}`
+      )
+    })
+).pipe(Command.withDescription("Import historical posts from X user timelines"))
 
 const exportCommand = Command.make(
   "export",
@@ -279,7 +318,7 @@ const statusCommand = Command.make("status", {}, () =>
 
 const root = Command.make("xrank").pipe(
   Command.withDescription("x-rank ops CLI"),
-  Command.withSubcommands([refreshCommand, exportCommand, publishCommand, costCommand, statusCommand])
+  Command.withSubcommands([refreshCommand, backfillCommand, exportCommand, publishCommand, costCommand, statusCommand])
 )
 
 const RuntimeLayer = Layer.mergeAll(

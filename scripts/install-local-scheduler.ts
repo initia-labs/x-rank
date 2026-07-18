@@ -78,7 +78,25 @@ const cronSchedule = (seconds: number) => {
   const minutes = Math.max(1, Math.round(seconds / 60))
   if (minutes < 60) return `*/${minutes} * * * *`
   if (minutes % 60 === 0 && minutes / 60 <= 23) return `0 */${minutes / 60} * * *`
+  if (minutes === 24 * 60) return "0 0 * * *"
   return `*/30 * * * *`
+}
+
+const installLinuxCron = (entry: string) => {
+  const marker = `# ${label}`
+  const current = spawnSync("crontab", ["-l"], { encoding: "utf8" })
+  const existing = current.status === 0 ? current.stdout : ""
+  const lines = existing
+    .split("\n")
+    .map((line) => line.trimEnd())
+    .filter((line) => line && !line.endsWith(marker))
+  const next = [...lines, `${entry} ${marker}`, ""].join("\n")
+  const installed = spawnSync("crontab", ["-"], {
+    encoding: "utf8",
+    input: next,
+    stdio: ["pipe", "inherit", "inherit"]
+  })
+  if (installed.status !== 0) process.exit(installed.status ?? 1)
 }
 
 const uninstallMacLaunchAgent = () => {
@@ -129,8 +147,16 @@ try {
     console.log("  bun run schedule:uninstall")
   } else {
     const schedule = cronSchedule(seconds)
-    console.log("Add this to your crontab (`crontab -e`):")
-    console.log(`${schedule} cd ${shellEscape(cwd)} && ${command} >> ${shellEscape(logPath)} 2>&1`)
+    mkdirSync(join(cwd, "logs"), { recursive: true })
+    const path = process.env.PATH ?? "/usr/local/bin:/usr/bin:/bin"
+    const entry = `${schedule} export PATH=${shellEscape(path)}; cd ${shellEscape(cwd)} && ${command} >> ${shellEscape(logPath)} 2>&1`
+    if (has("load")) {
+      installLinuxCron(entry)
+      console.log(`Installed ${label}`)
+    } else {
+      console.log("Add this to your crontab (`crontab -e`):")
+      console.log(entry)
+    }
   }
 } finally {
   rl.close()

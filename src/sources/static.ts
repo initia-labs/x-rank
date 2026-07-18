@@ -30,12 +30,13 @@ const fetchManifest: Effect.Effect<StaticManifest | undefined, never> = fetchJso
 
 const snapshotUrl = (manifest: StaticManifest | undefined, selection: Selection): string => {
   if (!manifest) return "/snapshot.json"
+  const suffix = selection.includeReplies ? "-with-replies" : ""
   if (selection.mode === "weekly") {
     const iso = selection.weekOf ?? manifest.defaultWeekIso
     const known = manifest.weeks.find((w) => w.iso === iso) ?? manifest.weeks[1] ?? manifest.weeks[0]
-    return `/snapshots/weekly-${known?.iso ?? manifest.defaultWeekIso}.json`
+    return `/snapshots/weekly-${known?.iso ?? manifest.defaultWeekIso}${suffix}.json`
   }
-  return `/snapshots/rolling-${selection.range}.json`
+  return `/snapshots/rolling-${selection.range}${suffix}.json`
 }
 
 export const staticSource: SnapshotSource = (selectionAtom) =>
