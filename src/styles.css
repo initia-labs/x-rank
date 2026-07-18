@@ -559,6 +559,10 @@ h3 {
   overflow-x: auto;
 }
 
+.mobile-leaderboard {
+  display: none;
+}
+
 .table-row {
   display: grid;
   grid-template-columns: 78px minmax(220px, 1.6fr) minmax(140px, 1.3fr) 80px repeat(3, minmax(80px, 1fr));
@@ -2100,6 +2104,49 @@ a.post-card.hero:focus-visible {
   .app-shell {
     width: min(100% - 20px, 680px);
     padding: 18px 14px 48px;
+  }
+
+  .leaderboard-table {
+    display: none;
+  }
+
+  .mobile-leaderboard {
+    display: grid;
+  }
+
+  .mobile-leaderboard-row {
+    display: grid;
+    grid-template-columns: 48px minmax(0, 1fr) auto;
+    gap: 8px;
+    align-items: center;
+    width: 100%;
+    padding: 12px 14px;
+    border: 0;
+    border-top: 1px solid var(--border);
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .mobile-leaderboard-row:hover {
+    background: var(--row-hover);
+  }
+
+  .mobile-leaderboard-score {
+    display: grid;
+    justify-items: end;
+    gap: 5px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .mobile-leaderboard-score strong {
+    font-size: 0.94rem;
+  }
+
+  .mobile-leaderboard-score .sparkline {
+    font-size: 0.72rem;
   }
 
   .hero-panel {

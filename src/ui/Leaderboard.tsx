@@ -77,57 +77,75 @@ function LeaderboardTable({
   const maxValue = Math.max(1, ...card.entries.map((entry) => entry.value))
 
   return (
-    <div className="leaderboard-table">
-      <div className="table-row table-head">
-        <span>
-          <Hint label={HINTS.rank}>Rank</Hint>
-        </span>
-        <span>Account</span>
-        <span className="num-cell">
-          <Hint label={scoreDescription}>{scoreLabel}</Hint>
-        </span>
-        <span>
-          <Hint label="Daily engagement shape across the week — Mon to Sun, scaled to that account's max day.">7d</Hint>
-        </span>
-        <span className="num-cell">
-          <Hint label={HINTS.impressions}>Impressions</Hint>
-        </span>
-        <span className="num-cell">
-          <Hint label={HINTS.posts}>Tweets</Hint>
-        </span>
-        <span className="num-cell">
-          <Hint label={HINTS.rate}>Rate</Hint>
-        </span>
+    <>
+      <div className="leaderboard-table">
+        <div className="table-row table-head">
+          <span>
+            <Hint label={HINTS.rank}>Rank</Hint>
+          </span>
+          <span>Account</span>
+          <span className="num-cell">
+            <Hint label={scoreDescription}>{scoreLabel}</Hint>
+          </span>
+          <span>
+            <Hint label="Daily engagement shape across the week — Mon to Sun, scaled to that account's max day.">
+              7d
+            </Hint>
+          </span>
+          <span className="num-cell">
+            <Hint label={HINTS.impressions}>Impressions</Hint>
+          </span>
+          <span className="num-cell">
+            <Hint label={HINTS.posts}>Tweets</Hint>
+          </span>
+          <span className="num-cell">
+            <Hint label={HINTS.rate}>Rate</Hint>
+          </span>
+        </div>
+        {card.entries.map((entry) => {
+          const { performance } = entry
+          const noActivity = performance.stats.posts === 0 && entry.value === 0
+          return (
+            <AccountModal account={entry.account} entry={entry} key={entry.account.id}>
+              <button className="table-row table-row-button" type="button">
+                <RankBadge entry={entry} />
+                <AccountIdentity account={entry.account} />
+                {noActivity ? (
+                  <span className="empty-row">No tweets in this window</span>
+                ) : (
+                  <>
+                    <span
+                      className="num-cell engagement-cell"
+                      style={{ ["--bar" as string]: `${(entry.value / maxValue) * 100}%` }}
+                    >
+                      <strong>{formatMetric(entry.value, card.definition.unit)}</strong>
+                    </span>
+                    <Sparkline values={entry.account.dailyEngagement} />
+                    <span className="num-cell muted">{formatNumber(performance.stats.impressions)}</span>
+                    <span className="num-cell muted">{formatNumber(performance.stats.posts)}</span>
+                    <span className="num-cell muted">{formatMetric(performance.engagementRate, "percent")}</span>
+                  </>
+                )}
+              </button>
+            </AccountModal>
+          )
+        })}
       </div>
-      {card.entries.map((entry) => {
-        const { performance } = entry
-        const noActivity = performance.stats.posts === 0 && entry.value === 0
-        return (
+      <div className="mobile-leaderboard">
+        {card.entries.map((entry) => (
           <AccountModal account={entry.account} entry={entry} key={entry.account.id}>
-            <button className="table-row table-row-button" type="button">
+            <button className="mobile-leaderboard-row" type="button">
               <RankBadge entry={entry} />
-              <AccountIdentity account={entry.account} />
-              {noActivity ? (
-                <span className="empty-row">No tweets in this window</span>
-              ) : (
-                <>
-                  <span
-                    className="num-cell engagement-cell"
-                    style={{ ["--bar" as string]: `${(entry.value / maxValue) * 100}%` }}
-                  >
-                    <strong>{formatMetric(entry.value, card.definition.unit)}</strong>
-                  </span>
-                  <Sparkline values={entry.account.dailyEngagement} />
-                  <span className="num-cell muted">{formatNumber(performance.stats.impressions)}</span>
-                  <span className="num-cell muted">{formatNumber(performance.stats.posts)}</span>
-                  <span className="num-cell muted">{formatMetric(performance.engagementRate, "percent")}</span>
-                </>
-              )}
+              <AccountIdentity account={entry.account} compact />
+              <span className="mobile-leaderboard-score">
+                <strong>{entry.value === 0 ? "—" : formatMetric(entry.value, card.definition.unit)}</strong>
+                <Sparkline values={entry.account.dailyEngagement} />
+              </span>
             </button>
           </AccountModal>
-        )
-      })}
-    </div>
+        ))}
+      </div>
+    </>
   )
 }
 
