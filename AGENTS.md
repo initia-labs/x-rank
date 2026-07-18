@@ -11,8 +11,9 @@ and deploy it to any CDN.
 - **Runtime / build:** Bun + Vite. `bun run dev` launches fake-mode Vite only.
   `bun run dev:static` previews exported snapshots. `bun run dev:live` launches
   Vite plus the API server. `bun run build` typechecks both projects and bundles
-  the static client. `bun run publish` refreshes, exports static snapshots, and
-  deploys to Vercel.
+  the static client. `bun run publish` refreshes, exports static snapshots,
+  commits those generated files, and pushes `origin/main` for Git-connected
+  deployment.
 - **Effect v4 (beta).** The published types lag. If you have a local clone
   of [effect-smol](https://github.com/Effect-TS/effect/tree/main/packages/effect)
   available (commonly at `~/code/open-source/effect-smol`), check that for
@@ -96,9 +97,9 @@ For self-host setup, prefer the static workflow from `README.md`: configure
 request time unless the user explicitly wants a live server and accepts the
 cost/rate-limit tradeoff.
 
-For deploys, Vercel uses `bun run publish`. Cloudflare Pages should deploy the
-static `dist/` directory, e.g. `bunx wrangler pages deploy dist --project-name
-x-rank`, with no Worker/D1 requirement.
+For deploys, connect the GitHub repository's `main` branch to the static host.
+`bun run publish` pushes refreshed snapshots to `origin/main`; the host should
+run `bun run build` and deploy `dist/`.
 
 ## Conventions
 

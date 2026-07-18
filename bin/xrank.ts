@@ -19,6 +19,7 @@ const OUTPUT_PATH = "public/snapshot.json"
 const SNAPSHOT_DIR = "public/snapshots"
 const ROLLING_RANGES: ReadonlyArray<DateRange> = ranges.map((range) => range.id)
 const WEEKLY_LOOKBACK = 8
+const SNAPSHOT_PATHS = [OUTPUT_PATH, SNAPSHOT_DIR] as const
 
 const formatRelative = (capturedAt: number, now: number) => {
   const ageMs = Math.max(0, now - capturedAt)
@@ -121,6 +122,53 @@ const writeSnapshot = Effect.gen(function* () {
   yield* Console.log(`  · ${SNAPSHOT_DIR}/manifest.json`)
 })
 
+const runGit = (args: ReadonlyArray<string>, action: string) =>
+  Effect.sync(() => {
+    const result = spawnSync("git", args, { stdio: "inherit" })
+    if (result.error) throw result.error
+    if (result.status !== 0) throw new Error(`${action} failed (${result.status})`)
+  })
+
+const gitOutput = (args: ReadonlyArray<string>, action: string) =>
+  Effect.sync(() => {
+    const result = spawnSync("git", args, { encoding: "utf8" })
+    if (result.error) throw result.error
+    if (result.status !== 0) throw new Error(`${action} failed (${result.status})`)
+    return result.stdout.trim()
+  })
+
+const syncMain = Effect.gen(function* () {
+  const branch = yield* gitOutput(["branch", "--show-current"], "reading the current Git branch")
+  if (branch !== "main") {
+    return yield* Effect.die(new Error(`publish must run on main; current branch is ${branch || "detached"}`))
+  }
+
+  yield* Console.log("syncing with origin/main…")
+  yield* runGit(["pull", "--rebase", "--autostash", "origin", "main"], "syncing origin/main")
+})
+
+const publishSnapshots = Effect.gen(function* () {
+  yield* writeSnapshot
+  yield* runGit(["add", "-A", "--", ...SNAPSHOT_PATHS], "staging snapshots")
+
+  const diff = yield* Effect.sync(() => spawnSync("git", ["diff", "--cached", "--quiet", "--", ...SNAPSHOT_PATHS]))
+  if (diff.error) return yield* Effect.die(diff.error)
+  if (diff.status === 1) {
+    yield* runGit(
+      ["commit", "--only", "-m", "Update leaderboard snapshots", "--", ...SNAPSHOT_PATHS],
+      "committing snapshots"
+    )
+  } else if (diff.status === 0) {
+    yield* Console.log("snapshots unchanged; nothing to commit")
+  } else {
+    return yield* Effect.die(new Error(`checking snapshot changes failed (${diff.status})`))
+  }
+
+  yield* Console.log("pushing snapshots to origin/main…")
+  yield* runGit(["push", "origin", "HEAD:main"], "pushing origin/main")
+  yield* Console.log("done.")
+})
+
 const refreshCommand = Command.make(
   "refresh",
   {
@@ -193,6 +241,7 @@ const publishCommand = Command.make(
   },
   ({ skipIfFresh }) =>
     Effect.gen(function* () {
+      yield* syncMain
       const db = yield* Db
       const last = yield* lastRefresh(db)
       if (skipIfFresh && last && Date.now() - last.captured_at < 60 * 60_000) {
@@ -201,18 +250,9 @@ const publishCommand = Command.make(
         yield* Console.log("running refresh against X API…")
         yield* runRefresh
       }
-      yield* writeSnapshot
-      yield* Console.log("building Vercel artifact…")
-      const build = yield* Effect.sync(() => spawnSync("bunx", ["vercel", "build", "--prod"], { stdio: "inherit" }))
-      if (build.status !== 0) return yield* Effect.die(new Error(`vercel build failed (${build.status})`))
-      yield* Console.log("deploying to production…")
-      const deploy = yield* Effect.sync(() =>
-        spawnSync("bunx", ["vercel", "deploy", "--prebuilt", "--prod"], { stdio: "inherit" })
-      )
-      if (deploy.status !== 0) return yield* Effect.die(new Error(`vercel deploy failed (${deploy.status})`))
-      yield* Console.log("done.")
+      yield* publishSnapshots
     })
-).pipe(Command.withDescription("Refresh, export, build, and deploy to production"))
+).pipe(Command.withDescription("Refresh, export, commit, and push snapshots to origin/main"))
 
 const parseSince = (arg: string): number => {
   const m = arg.match(/^(\d+)([dhwmy])$/)

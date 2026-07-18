@@ -8,8 +8,6 @@ package-lock.json
 .claude/
 
 data/
-public/snapshot.json
-public/snapshots/
 *.sqlite
 *.sqlite-*
 *.db

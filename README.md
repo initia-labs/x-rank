@@ -2,7 +2,7 @@
 
 A self-hostable X leaderboard. Pick a list of accounts, refresh their recent
 posts through the X API, export JSON snapshots, and deploy the React dashboard
-as a static site to any CDN.
+as a static site from GitHub to any CDN.
 
 Production is static by default: no server, no database connection, and no API
 token in the browser.
@@ -70,16 +70,17 @@ The deploy artifact is `dist/`. Upload it to any static CDN:
 - S3/R2 plus a CDN
 - any server that can serve static files
 
-### Vercel
+### Git-connected deploys
 
-```sh
-bunx vercel login
-bunx vercel link
-bun run publish       # refresh + export + Vercel build/deploy
-```
+Connect the GitHub repository's `main` branch to Vercel, Cloudflare Pages, or
+another static host. Set the build command to `bun run build` and the output
+directory to `dist`.
 
-`bun run publish --skip-if-fresh` retries a Vercel deploy without another X API
-refresh if the last refresh was within the past hour.
+`bun run publish` refreshes and exports the snapshots, commits only
+`public/snapshot.json` and `public/snapshots/`, then pushes to `origin/main`.
+That push triggers the connected deployment. The checkout must be on `main`,
+Git author name/email must be configured, and the `origin` remote must have
+non-interactive push authentication (SSH is recommended for local schedulers).
 
 ### Cloudflare Pages
 
@@ -124,7 +125,8 @@ Set up this x-rank fork for my organization.
    commit the token.
 4. Run `bun install`.
 5. Run `bun run doctor` and fix any reported issues.
-6. If I chose Vercel, run `bunx vercel link` if needed, then `bun run publish`.
+6. Connect my static host to the GitHub repository's `main` branch with build
+   command `bun run build` and output directory `dist`.
 7. If I chose Cloudflare Pages, run `bun run refresh`, `bun run export`,
    `bun run build`, then `bunx wrangler pages deploy dist --project-name x-rank`.
 8. Otherwise run `bun run refresh`, `bun run export`, and `bun run build`, then
@@ -142,12 +144,12 @@ Good options:
 
 - Manual: run `bun run publish` when you want fresh data.
 - Manual retry: run `bun run publish --skip-if-fresh` to avoid another X API
-  refresh if you are only retrying a deploy.
+  refresh if the latest data is less than an hour old.
 - Local background publishing: configure `schedule` in `xrank.config.ts`, then run
   `bun run schedule:install -- --yes --load`. On macOS this writes and loads a
   LaunchAgent; on Linux it installs a labeled cron entry.
-- GitHub Actions schedule: good for shared ownership; commit or upload the
-  exported snapshots during the job, then deploy static assets.
+- Each successful publish commits the exported JSON and pushes `main`; use that
+  push as the deployment trigger in your hosting provider.
 
 The production site should still serve static JSON. Avoid request-time X API
 calls unless you deliberately want a live server and cost controls.
@@ -197,7 +199,8 @@ xrank.config.ts roster
   -> local SQLite cache at ./data/snapshots.db
   -> bun run export
   -> public/snapshot.json + public/snapshots/*.json
-  -> bun run build
+  -> git push origin main
+  -> host runs bun run build
   -> static CDN
 ```
 
