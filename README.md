@@ -82,6 +82,10 @@ Connect the GitHub repository's `main` branch to Vercel, Cloudflare Pages, or
 another static host. Set the build command to `bun run build` and the output
 directory to `dist`.
 
+Use the host's native Git integration as the only deployment path. Do not add a
+parallel token-based GitHub Actions deployment; it creates duplicate production
+deploys and fails when the provider token expires or is rotated.
+
 `bun run publish` refreshes and exports the snapshots, commits only
 `public/snapshot.json` and `public/snapshots/`, then pushes to `origin/main`.
 That push triggers the connected deployment. The checkout must be on `main`,
