@@ -1,12 +1,20 @@
 import { Array as Arr, DateTime } from "effect"
 import type { Account, EngagementStats, ScoreMetric, SocialMetricsSnapshot, TopPost, TrendPoint } from "./api.ts"
-import { formatByUnit, formatNumber, formatPercent, formatSignedPoints, formatVsPrior, type Unit } from "./format.ts"
+import {
+  formatByUnit,
+  formatFollowerCount,
+  formatNumber,
+  formatPercent,
+  formatSignedPoints,
+  formatVsPrior,
+  type Unit
+} from "./format.ts"
 import type { WeekChoice, WindowSpec } from "./metrics.ts"
 import { totalEngagements } from "./metrics.ts"
 import { scoreFor } from "./score.ts"
 import type { SelectionView } from "./selection.ts"
 
-export { formatNumber } from "./format.ts"
+export { formatFollowerCount, formatNumber } from "./format.ts"
 
 export { totalEngagements }
 
@@ -339,7 +347,7 @@ const buildSummary = (visible: ReadonlyArray<AccountPerformance>): ReadonlyArray
     {
       label: "Active accounts",
       value: `${totals.active}/${visible.length}`,
-      delta: `+${formatNumber(totals.growth)} followers`,
+      delta: `+${formatFollowerCount(totals.growth)} followers`,
       tone: "good"
     }
   ]

@@ -3,7 +3,7 @@ import { useMemo, useState, type ReactNode } from "react"
 import { Avatar } from "../Avatar.tsx"
 import type { Account } from "../data.ts"
 import type { LeaderboardEntry } from "../model.ts"
-import { formatMetric, formatNumber, totalEngagements } from "../model.ts"
+import { formatFollowerCount, formatMetric, formatNumber, totalEngagements } from "../model.ts"
 import { Sparkline } from "./parts.tsx"
 
 const dayMonthFormatter = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" })
@@ -75,7 +75,7 @@ export function AccountModal({
             </div>
             <div className="modal-stat">
               <span>Followers</span>
-              <strong>{formatNumber(account.followers)}</strong>
+              <strong>{formatFollowerCount(account.followers)}</strong>
             </div>
             <div className="modal-stat">
               <span>Rate</span>
@@ -238,7 +238,7 @@ function FollowerHistoryPanel({ account }: { readonly account: Account }) {
       <div className="modal-follower-header">
         <span>Follower history</span>
         <span className="modal-follower-range">
-          {formatNumber(minF)} → {formatNumber(maxF)} · {history.length} day
+          {formatFollowerCount(minF)} → {formatFollowerCount(maxF)} · {history.length} day
           {history.length === 1 ? "" : "s"}
         </span>
       </div>
@@ -254,7 +254,7 @@ function FollowerHistoryPanel({ account }: { readonly account: Account }) {
         />
         {points.map((p) => (
           <circle cx={p.x} cy={p.y} r={2.4} fill={account.color} key={p.sample.date}>
-            <title>{`${p.sample.date} · ${formatNumber(p.sample.followers)} followers`}</title>
+            <title>{`${p.sample.date} · ${formatFollowerCount(p.sample.followers)} followers`}</title>
           </circle>
         ))}
       </svg>
@@ -268,7 +268,7 @@ function FollowerHistoryPanel({ account }: { readonly account: Account }) {
             return (
               <li className="modal-follower-row" key={sample.date}>
                 <span className="modal-follower-date">{dayMonthFormatter.format(new Date(sample.date))}</span>
-                <span className="modal-follower-count">{formatNumber(sample.followers)}</span>
+                <span className="modal-follower-count">{formatFollowerCount(sample.followers)}</span>
                 {delta !== undefined && (
                   <span
                     className={
@@ -280,7 +280,7 @@ function FollowerHistoryPanel({ account }: { readonly account: Account }) {
                     }
                   >
                     {delta > 0 ? "+" : ""}
-                    {formatNumber(delta)}
+                    {formatFollowerCount(delta)}
                   </span>
                 )}
               </li>

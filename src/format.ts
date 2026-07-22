@@ -3,9 +3,12 @@ const compactFormatter = new Intl.NumberFormat("en", {
   maximumFractionDigits: 1
 })
 const standardFormatter = new Intl.NumberFormat("en", { maximumFractionDigits: 1 })
+const followerFormatter = new Intl.NumberFormat("en", { maximumFractionDigits: 0 })
 
 export const formatNumber = (value: number): string =>
   Math.abs(value) >= 10000 ? compactFormatter.format(value) : standardFormatter.format(value)
+
+export const formatFollowerCount = (value: number): string => followerFormatter.format(value)
 
 export const formatPercent = (value: number): string => `${(value * 100).toFixed(2)}%`
 

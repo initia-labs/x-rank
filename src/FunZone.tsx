@@ -20,7 +20,7 @@ import {
 import { useEffect, useMemo, useState, type ComponentType, type ReactNode } from "react"
 import { Avatar } from "./Avatar.tsx"
 import type { Account, TopPost } from "./data.ts"
-import { flattenPosts, formatNumber, totalEngagements, type PostItem } from "./model.ts"
+import { flattenPosts, formatFollowerCount, formatNumber, totalEngagements, type PostItem } from "./model.ts"
 
 const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const
 
@@ -270,7 +270,7 @@ function FollowersBubble({ accounts }: { readonly accounts: ReadonlyArray<Accoun
                 stroke={a.color}
                 strokeWidth={1.5}
               >
-                <title>{`@${a.handle}\n${formatNumber(a.followers)} followers\n${formatNumber(eng)} eng\n${a.stats.posts} posts`}</title>
+                <title>{`@${a.handle}\n${formatFollowerCount(a.followers)} followers\n${formatNumber(eng)} eng\n${a.stats.posts} posts`}</title>
               </circle>
               <text
                 x={xScale(a.followers)}
