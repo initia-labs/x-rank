@@ -19,6 +19,7 @@ const entrySource = (entry: RosterEntry) => {
   const parts = [`handle: ${JSON.stringify(normalizeHandle(entry.handle))}`]
   if (entry.team) parts.push(`team: ${JSON.stringify(entry.team)}`)
   if (entry.color) parts.push(`color: ${JSON.stringify(entry.color)}`)
+  if (entry.timeZone) parts.push(`timeZone: ${JSON.stringify(entry.timeZone)}`)
   return `    { ${parts.join(", ")} }`
 }
 

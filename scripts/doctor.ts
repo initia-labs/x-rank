@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 import { existsSync, readFileSync } from "node:fs"
 import userConfig from "../xrank.config.ts"
-import type { RosterEntry } from "../src/xrank-config.ts"
+import { isValidTimeZone, type RosterEntry } from "../src/xrank-config.ts"
 
 const roster = userConfig.roster as ReadonlyArray<RosterEntry>
 
@@ -28,6 +28,7 @@ for (const entry of roster) {
   if (seen.has(handle)) fail(`roster contains duplicate handle: ${handle}`)
   seen.add(handle)
   if (entry.color && !/^#[0-9a-fA-F]{6}$/.test(entry.color)) fail(`invalid color for ${handle}: ${entry.color}`)
+  if (entry.timeZone && !isValidTimeZone(entry.timeZone)) fail(`invalid IANA timezone for ${handle}: ${entry.timeZone}`)
 }
 
 if (!existsSync(".env")) fail(".env is missing; copy .env.example to .env and set X_BEARER_TOKEN")

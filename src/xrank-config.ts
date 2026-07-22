@@ -2,6 +2,7 @@ export interface RosterEntry {
   readonly handle: string
   readonly team?: string
   readonly color?: `#${string}`
+  readonly timeZone?: string
 }
 
 export interface ScheduleConfig {
@@ -17,3 +18,12 @@ export interface XRankConfig {
 }
 
 export const defineXRankConfig = <const Config extends XRankConfig>(config: Config): Config => config
+
+export const isValidTimeZone = (timeZone: string): boolean => {
+  try {
+    new Intl.DateTimeFormat("en", { timeZone }).format()
+    return true
+  } catch {
+    return false
+  }
+}

@@ -80,8 +80,9 @@ bun run build
 
 `xrank.config.ts` is the self-hoster setup surface. Agents should ask for X
 handles, then edit `roster` or run `bun run config -- set <handles>`. Only
-`handle` is required; `team` and `color` are optional. Run `bun run doctor`
-before the first refresh.
+`handle` is required; `timeZone`, `team`, and `color` are optional. Set
+`timeZone` to an IANA timezone such as `Asia/Bangkok` so workday streaks use
+the account's local calendar. Run `bun run doctor` before the first refresh.
 
 `server/index.ts` self-launches via `BunRuntime.runMain(Layer.launch(ApiLive))`.
 SIGINT/SIGTERM teardown is handled by the runtime's scope. Without

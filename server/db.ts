@@ -421,30 +421,24 @@ export const tweetsAcrossAccountsBetween = (
     ORDER BY created_at DESC
   `.pipe(Effect.orDie)
 
-export interface PostingDayRow {
-  readonly day: number
-  readonly posts: number
-}
-
-export const postingActivityByAccount = (
+export const postingTimestampsByAccount = (
   db: DbClient,
   capturedAt: number,
   includeReplies: boolean
-): Effect.Effect<ReadonlyMap<string, ReadonlyArray<PostingDayRow>>> =>
+): Effect.Effect<ReadonlyMap<string, ReadonlyArray<number>>> =>
   Effect.gen(function* () {
-    const rows = yield* db<{ account_id: string; day: number; posts: number }>`
-      SELECT account_id, CAST(created_at / ${DAY_MS} AS INTEGER) AS day, COUNT(*) AS posts
+    const rows = yield* db<{ account_id: string; created_at: number }>`
+      SELECT account_id, created_at
       FROM tweets
       WHERE created_at < ${capturedAt}
         AND (${includeReplies ? 1 : 0} = 1 OR is_reply = 0)
-      GROUP BY account_id, day
-      ORDER BY account_id ASC, day ASC
+      ORDER BY account_id ASC, created_at ASC
     `.pipe(Effect.orDie)
-    const byAccount = new Map<string, Array<PostingDayRow>>()
+    const byAccount = new Map<string, Array<number>>()
     for (const row of rows) {
-      const days = byAccount.get(row.account_id) ?? []
-      days.push({ day: row.day, posts: row.posts })
-      byAccount.set(row.account_id, days)
+      const timestamps = byAccount.get(row.account_id) ?? []
+      timestamps.push(row.created_at)
+      byAccount.set(row.account_id, timestamps)
     }
     return byAccount
   })

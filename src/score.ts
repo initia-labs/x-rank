@@ -21,7 +21,7 @@ export const scores: Record<ScoreMetric, ScoreDefinition> = {
     key: "streak",
     label: "Workday streak",
     unit: "consecutive workdays",
-    description: "Consecutive Monday–Friday posting days; weekends never break the streak",
+    description: "Consecutive local Monday–Friday posting days; weekends never break the streak",
     value: (_, account) => account.currentPostingStreak
   },
   engagements: {

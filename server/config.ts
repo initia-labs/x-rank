@@ -1,12 +1,13 @@
 import { Config, Context, Duration, Layer, Option } from "effect"
 import userConfig from "../xrank.config.ts"
-import type { RosterEntry, XRankConfig } from "../src/xrank-config.ts"
+import { isValidTimeZone, type RosterEntry, type XRankConfig } from "../src/xrank-config.ts"
 import { normalizeHandle } from "./handles.ts"
 
 export interface AccountConfig {
   readonly handle: string
   readonly team: string
   readonly color: string
+  readonly timeZone: string
 }
 
 const palette = [
@@ -51,10 +52,14 @@ const normalizeRoster = (entries: ReadonlyArray<RosterEntry>): ReadonlyArray<Acc
     if (entry.color && !/^#[0-9a-fA-F]{6}$/.test(entry.color)) {
       throw new Error(`x-rank roster color for ${handle} must be a 6-digit hex value like #7c3aed`)
     }
+    if (entry.timeZone && !isValidTimeZone(entry.timeZone)) {
+      throw new Error(`x-rank roster timeZone for ${handle} must be a valid IANA timezone like Asia/Bangkok`)
+    }
     return {
       handle,
       team: entry.team ?? "People",
-      color: entry.color ?? colorForHandle(handle)
+      color: entry.color ?? colorForHandle(handle),
+      timeZone: entry.timeZone ?? "UTC"
     }
   })
 }

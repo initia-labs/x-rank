@@ -24,7 +24,11 @@ Edit the typed config in `xrank.config.ts`:
 ```ts
 export default defineXRankConfig({
   title: "Acme X Rank",
-  roster: [{ handle: "thdxr" }, { handle: "kitlangton" }, { handle: "opencode", color: "#34d399" }],
+  roster: [
+    { handle: "thdxr", timeZone: "America/Los_Angeles" },
+    { handle: "kitlangton", timeZone: "Asia/Bangkok" },
+    { handle: "opencode", color: "#34d399" }
+  ],
   schedule: {
     every: "4 hours",
     command: "bun run publish --skip-if-fresh"
@@ -32,8 +36,10 @@ export default defineXRankConfig({
 })
 ```
 
-Only `handle` is required. `team` and `color` are optional and kept for future
-grouping/customization.
+Only `handle` is required. Set the optional `timeZone` to the account's IANA
+timezone (for example, `Asia/Bangkok`) so workday streaks use that person's
+local calendar; it defaults to `UTC`. `team` and `color` are optional and kept
+for future grouping/customization.
 
 Agents can update the roster without hand-editing TypeScript:
 
