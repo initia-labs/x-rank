@@ -38,8 +38,9 @@ export default defineXRankConfig({
 
 Only `handle` is required. Set the optional `timeZone` to the account's IANA
 timezone (for example, `Asia/Bangkok`) so workday streaks use that person's
-local calendar; it defaults to `UTC`. `team` and `color` are optional and kept
-for future grouping/customization.
+local calendar; it defaults to `UTC`. Every other date and time on the
+dashboard is UTC. `team` and `color` are optional and kept for future
+grouping/customization.
 
 Agents can update the roster without hand-editing TypeScript:
 

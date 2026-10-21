@@ -82,7 +82,8 @@ bun run build
 handles, then edit `roster` or run `bun run config -- set <handles>`. Only
 `handle` is required; `timeZone`, `team`, and `color` are optional. Set
 `timeZone` to an IANA timezone such as `Asia/Bangkok` so workday streaks use
-the account's local calendar. Run `bun run doctor` before the first refresh.
+the account's local calendar. Every other date and time is UTC. Run
+`bun run doctor` before the first refresh.
 
 `server/index.ts` self-launches via `BunRuntime.runMain(Layer.launch(ApiLive))`.
 SIGINT/SIGTERM teardown is handled by the runtime's scope. Without

@@ -61,7 +61,8 @@ const feedDateFormatter = new Intl.DateTimeFormat("en-US", {
   weekday: "short",
   hour: "numeric",
   minute: "2-digit",
-  timeZone: "America/New_York"
+  timeZone: "UTC",
+  timeZoneName: "short"
 })
 
 function FeedStat({

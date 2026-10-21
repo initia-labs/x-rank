@@ -183,7 +183,8 @@ const sourceLabels: Record<SocialMetricsSnapshot["source"], string> = {
 const capturedAtFormatter = new Intl.DateTimeFormat("en", {
   hour: "numeric",
   minute: "2-digit",
-  timeZone: "America/New_York"
+  timeZone: "UTC",
+  timeZoneName: "short"
 })
 
 const safeRate = (engagements: number, impressions: number) => (impressions === 0 ? 0 : engagements / impressions)

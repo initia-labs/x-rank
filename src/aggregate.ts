@@ -38,7 +38,8 @@ const topPostDateFormatter = new Intl.DateTimeFormat("en-US", {
   weekday: "short",
   hour: "numeric",
   minute: "2-digit",
-  timeZone: "America/New_York"
+  timeZone: "UTC",
+  timeZoneName: "short"
 })
 
 const tweetToTopPost = (tweet: DatasetTweet, handle: string): TopPost => ({
@@ -119,20 +120,14 @@ const dailyEngagementBuckets = (tweets: ReadonlyArray<DatasetTweet>, now: number
     }
   ).map((b) => b.value)
 
-const isoDateInETFormatter = new Intl.DateTimeFormat("en-CA", {
-  timeZone: "America/New_York",
-  year: "numeric",
-  month: "2-digit",
-  day: "2-digit"
-})
-const isoDateInET = (ms: number) => isoDateInETFormatter.format(new Date(ms))
+const isoDateUtc = (ms: number) => new Date(ms).toISOString().slice(0, 10)
 
 const bucketFollowerHistoryByDay = (
   rows: ReadonlyArray<{ readonly captured_at: number; readonly followers: number }>
 ): ReadonlyArray<{ readonly date: string; readonly followers: number }> => {
   const byDay = new Map<string, { ts: number; followers: number }>()
   for (const r of rows) {
-    const date = isoDateInET(r.captured_at)
+    const date = isoDateUtc(r.captured_at)
     const existing = byDay.get(date)
     if (!existing || existing.ts < r.captured_at) byDay.set(date, { ts: r.captured_at, followers: r.followers })
   }

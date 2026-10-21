@@ -6,7 +6,7 @@ import type { LeaderboardEntry } from "../model.ts"
 import { formatFollowerCount, formatMetric, formatNumber, totalEngagements } from "../model.ts"
 import { Sparkline } from "./parts.tsx"
 
-const dayMonthFormatter = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" })
+const dayMonthFormatter = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", timeZone: "UTC" })
 const activityDateFormatter = new Intl.DateTimeFormat("en-US", {
   month: "short",
   day: "numeric",
