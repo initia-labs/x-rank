@@ -2,7 +2,7 @@ import { Array as Arr, DateTime } from "effect"
 import type { Account, EngagementStats, ScoreMetric, SocialMetricsSnapshot, TopPost, TrendPoint } from "./api.ts"
 import {
   formatByUnit,
-  formatFollowerCount,
+  formatSignedFollowers,
   formatNumber,
   formatPercent,
   formatSignedPoints,
@@ -60,7 +60,7 @@ export interface SummaryStat {
   readonly label: string
   readonly value: string
   readonly delta: string
-  readonly tone: "good" | "neutral"
+  readonly tone: "good" | "bad" | "neutral"
 }
 
 export interface TopPostEntry {
@@ -186,6 +186,8 @@ const capturedAtFormatter = new Intl.DateTimeFormat("en", {
   timeZone: "UTC",
   timeZoneName: "short"
 })
+
+const toneFor = (delta: number): SummaryStat["tone"] => (delta > 0 ? "good" : delta < 0 ? "bad" : "neutral")
 
 const safeRate = (engagements: number, impressions: number) => (impressions === 0 ? 0 : engagements / impressions)
 
@@ -327,19 +329,19 @@ const buildSummary = (visible: ReadonlyArray<AccountPerformance>): ReadonlyArray
       label: "Total tweets",
       value: formatNumber(totals.posts),
       delta: formatVsPrior(totals.posts, previousTotals.posts),
-      tone: "good"
+      tone: toneFor(totals.posts - previousTotals.posts)
     },
     {
       label: "Impressions",
       value: formatNumber(totals.impressions),
       delta: formatVsPrior(totals.impressions, previousTotals.impressions),
-      tone: "good"
+      tone: toneFor(totals.impressions - previousTotals.impressions)
     },
     {
       label: "Engagements",
       value: formatNumber(totals.engagements),
       delta: formatVsPrior(totals.engagements, previousTotals.engagements),
-      tone: "good"
+      tone: toneFor(totals.engagements - previousTotals.engagements)
     },
     {
       label: "Avg engagement rate",
@@ -350,8 +352,8 @@ const buildSummary = (visible: ReadonlyArray<AccountPerformance>): ReadonlyArray
     {
       label: "Active accounts",
       value: `${totals.active}/${visible.length}`,
-      delta: `+${formatFollowerCount(totals.growth)} followers`,
-      tone: "good"
+      delta: formatSignedFollowers(totals.growth),
+      tone: toneFor(totals.growth)
     }
   ]
 }

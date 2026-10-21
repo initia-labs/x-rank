@@ -237,6 +237,10 @@ h3 {
   color: var(--success);
 }
 
+.summary-card small.bad {
+  color: var(--warn);
+}
+
 .overall-card {
   margin-top: 22px;
   padding: 0;

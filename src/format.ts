@@ -5,14 +5,17 @@ const compactFormatter = new Intl.NumberFormat("en", {
 const standardFormatter = new Intl.NumberFormat("en", { maximumFractionDigits: 1 })
 const followerFormatter = new Intl.NumberFormat("en", { maximumFractionDigits: 0 })
 
+const signed = (value: number): string => (value >= 0 ? "+" : "")
+
 export const formatNumber = (value: number): string =>
   Math.abs(value) >= 10000 ? compactFormatter.format(value) : standardFormatter.format(value)
 
 export const formatFollowerCount = (value: number): string => followerFormatter.format(value)
 
-export const formatPercent = (value: number): string => `${(value * 100).toFixed(2)}%`
+export const formatSignedFollowers = (value: number): string =>
+  `${signed(value)}${followerFormatter.format(value)} followers`
 
-const signed = (value: number): string => (value >= 0 ? "+" : "")
+export const formatPercent = (value: number): string => `${(value * 100).toFixed(2)}%`
 
 export const formatVsPrior = (current: number, previous: number): string => {
   const delta = current - previous
