@@ -3,8 +3,8 @@ import { Context, Duration, Effect, Layer, Redacted, Schedule } from "effect"
 import { HttpRouter } from "effect/unstable/http"
 import { HttpApiBuilder } from "effect/unstable/httpapi"
 import { ApiNoData, ApiUpstream, SnapshotApi } from "../src/api.ts"
-import { windowFromQuery } from "../src/metrics.ts"
-import { buildSnapshot } from "./aggregate.ts"
+import { buildWindow } from "../src/metrics.ts"
+import { snapshotFor } from "./aggregate.ts"
 import { AppConfig, AppConfigLive } from "./config.ts"
 import { CostTrackerLive } from "./cost.ts"
 import { Db, DbLive, lastRefresh } from "./db.ts"
@@ -78,8 +78,8 @@ const SnapshotGroup = HttpApiBuilder.group(SnapshotApi, "snapshot", (handlers) =
           last = yield* lastRefresh(db)
           if (!last) return yield* new ApiNoData({ message: "refresh produced no data" })
         }
-        const window = windowFromQuery(query, last.captured_at)
-        return yield* buildSnapshot(db, window, last.captured_at, query.includeReplies ?? false)
+        const window = buildWindow(query, last.captured_at)
+        return yield* snapshotFor(db, window, last.captured_at, query.includeReplies ?? false)
       })
     )
     .handle("refresh", () =>

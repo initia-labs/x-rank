@@ -10,7 +10,7 @@ import {
   type Unit
 } from "./format.ts"
 import type { WeekChoice, WindowSpec } from "./metrics.ts"
-import { totalEngagements } from "./metrics.ts"
+import { isoWeekOf, totalEngagements } from "./metrics.ts"
 import { scoreFor } from "./score.ts"
 import type { SelectionView } from "./selection.ts"
 
@@ -92,6 +92,8 @@ export interface DashboardModel {
   readonly weekChoices: ReadonlyArray<WeekChoice>
   readonly currentWeekIso: string
   readonly selectedWeekIso: string
+  readonly windowDays: number
+  readonly customRange: { readonly from: string; readonly to: string; readonly min: string; readonly max: string }
   readonly summary: ReadonlyArray<SummaryStat>
   readonly metrics: ReadonlyArray<MetricCardModel>
   readonly topPosts: ReadonlyArray<TopPostEntry>
@@ -393,6 +395,13 @@ export const buildDashboard = (snapshot: SocialMetricsSnapshot, view: SelectionV
     weekChoices: view.weekChoices,
     currentWeekIso: view.currentWeekIso,
     selectedWeekIso: view.selectedWeekIso,
+    windowDays: window.days,
+    customRange: {
+      from: isoWeekOf(window.start),
+      to: isoWeekOf(window.end - DAY_MS),
+      min: isoWeekOf(DateTime.toEpochMillis(snapshot.dataSince)),
+      max: isoWeekOf(DateTime.toEpochMillis(snapshot.capturedAt))
+    },
     accounts: snapshot.accounts,
     visibleAccounts: performances.length,
     totalAccounts: snapshot.accounts.length,

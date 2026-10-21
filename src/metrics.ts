@@ -75,16 +75,28 @@ const weekLabelFormatter = new Intl.DateTimeFormat("en-US", {
   timeZone: "UTC"
 })
 
+export interface WindowQuery {
+  readonly range: DateRange
+  readonly mode?: RangeMode | undefined
+  readonly weekOf?: string | undefined
+  readonly from?: string | undefined
+  readonly to?: string | undefined
+}
+
+const CUSTOM_DEFAULT_DAYS = 30
+
 /**
- * Build a window spec.
+ * Build a window spec. Days are UTC.
  *  - rolling: ends at `now`, length = `range` days
- *  - weekly: Sun→Sun starting at `weekOf` (UTC). Defaults to the most recent
+ *  - weekly: Sun→Sun starting at `weekOf`. Defaults to the most recent
  *    completed week (the Sunday strictly before `now`'s week start).
+ *  - custom: `from` through `to`, both inclusive. Defaults to the last 30 days.
  */
-export const buildWindow = (mode: RangeMode, range: DateRange, weekOf: string | undefined, now: number): WindowSpec => {
+export const buildWindow = (query: WindowQuery, now: number): WindowSpec => {
+  const mode = query.mode ?? "rolling"
   if (mode === "weekly") {
     const currentWeekStart = weekStartUtc(now)
-    const requested = weekOf ? parseIsoDateUtc(weekOf) : NaN
+    const requested = query.weekOf ? parseIsoDateUtc(query.weekOf) : NaN
     const start = Number.isFinite(requested) ? weekStartUtc(requested) : currentWeekStart - 7 * DAY_MS
     const end = start + 7 * DAY_MS
     const startLabel = weekLabelFormatter.format(new Date(start))
@@ -100,7 +112,28 @@ export const buildWindow = (mode: RangeMode, range: DateRange, weekOf: string | 
       inProgress
     }
   }
-  const days = rangeDays[range]
+  if (mode === "custom") {
+    const today = Math.floor(now / DAY_MS) * DAY_MS
+    const to = query.to ? parseIsoDateUtc(query.to) : NaN
+    const from = query.from ? parseIsoDateUtc(query.from) : NaN
+    const last = Number.isFinite(to) ? to : today
+    const first = Number.isFinite(from) ? from : last - (CUSTOM_DEFAULT_DAYS - 1) * DAY_MS
+    const start = Math.min(first, last)
+    const end = Math.max(first, last) + DAY_MS
+    const days = Math.round((end - start) / DAY_MS)
+    const startLabel = weekLabelFormatter.format(new Date(start))
+    const endLabel = weekLabelFormatter.format(new Date(end - DAY_MS))
+    return {
+      mode,
+      start,
+      end,
+      previousStart: start - days * DAY_MS,
+      days,
+      label: days === 1 ? startLabel : `${startLabel} → ${endLabel}`,
+      inProgress: end > now
+    }
+  }
+  const days = rangeDays[query.range]
   const start = now - days * DAY_MS
   return {
     mode,
@@ -108,7 +141,7 @@ export const buildWindow = (mode: RangeMode, range: DateRange, weekOf: string | 
     end: now,
     previousStart: start - days * DAY_MS,
     days,
-    label: rangeFor(range).label,
+    label: rangeFor(query.range).label,
     inProgress: false
   }
 }
@@ -119,16 +152,6 @@ export interface WeekChoice {
   readonly start: number
   readonly inProgress: boolean
 }
-
-export interface WindowQuery {
-  readonly range: DateRange
-  readonly mode?: RangeMode | undefined
-  readonly weekOf?: string | undefined
-}
-
-/** Build a WindowSpec from the wire query, defaulting mode to "rolling". */
-export const windowFromQuery = (query: WindowQuery, capturedAt: number): WindowSpec =>
-  buildWindow(query.mode ?? "rolling", query.range, query.weekOf, capturedAt)
 
 /** N most recent weeks (Sunday-start), newest first, including the in-progress one. */
 export const recentWeeks = (now: number, count: number): ReadonlyArray<WeekChoice> => {

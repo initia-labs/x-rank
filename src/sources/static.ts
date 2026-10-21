@@ -1,6 +1,9 @@
 import { Effect, Schema } from "effect"
 import * as Atom from "effect/unstable/reactivity/Atom"
+import { buildSnapshot } from "../aggregate.ts"
 import { type DateRange, SocialMetricsSnapshot } from "../api.ts"
+import { Dataset } from "../dataset.ts"
+import { buildWindow } from "../metrics.ts"
 import type { Selection } from "../selection.ts"
 import type { SnapshotSource } from "./types.ts"
 
@@ -12,6 +15,7 @@ interface StaticManifest {
 }
 
 const decodeSnapshot = Schema.decodeUnknownEffect(SocialMetricsSnapshot)
+const decodeDataset = Schema.decodeUnknownEffect(Dataset)
 
 const fetchJson = (url: string) =>
   Effect.tryPromise({
@@ -39,9 +43,19 @@ const snapshotUrl = (manifest: StaticManifest | undefined, selection: Selection)
   return `/snapshots/rolling-${selection.range}${suffix}.json`
 }
 
+// Fetched once, on first use of a custom range.
+const datasetAtom = Atom.make(fetchJson("/snapshots/dataset.json").pipe(Effect.flatMap(decodeDataset))).pipe(
+  Atom.keepAlive
+)
+
 export const staticSource: SnapshotSource = (selectionAtom) =>
   Atom.make((get) => {
     const selection = get(selectionAtom)
+    if (selection.mode === "custom") {
+      return Effect.map(get.result(datasetAtom), (dataset) =>
+        buildSnapshot(dataset, buildWindow(selection, dataset.capturedAt), selection.includeReplies)
+      )
+    }
     return Effect.flatMap(fetchManifest, (manifest) =>
       fetchJson(snapshotUrl(manifest, selection)).pipe(Effect.flatMap(decodeSnapshot))
     )

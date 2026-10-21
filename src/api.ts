@@ -4,7 +4,7 @@ import { HttpApi, HttpApiEndpoint, HttpApiGroup, HttpApiSchema } from "effect/un
 export const DateRange = Schema.Literals(["7d", "30d", "90d"])
 export type DateRange = Schema.Schema.Type<typeof DateRange>
 
-export const RangeMode = Schema.Literals(["rolling", "weekly"])
+export const RangeMode = Schema.Literals(["rolling", "weekly", "custom"])
 export type RangeMode = Schema.Schema.Type<typeof RangeMode>
 
 export const ScoreMetric = Schema.Literals(["posts", "streak", "engagements", "impressions"])
@@ -126,6 +126,8 @@ export const SnapshotApi = HttpApi.make("SnapshotApi").add(
           range: DateRange,
           mode: Schema.optional(RangeMode),
           weekOf: Schema.optional(Schema.String),
+          from: Schema.optional(Schema.String),
+          to: Schema.optional(Schema.String),
           includeReplies: Schema.optional(Schema.Boolean)
         },
         success: SocialMetricsSnapshot,

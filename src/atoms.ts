@@ -5,7 +5,15 @@ import { selectionAtom, selectionViewFor } from "./selection.ts"
 import { buildDashboard, type MetricKey } from "./model.ts"
 import { resolveSourceMode, sourceFor, type SnapshotAtom } from "./sources/index.ts"
 
-export { includeRepliesAtom, modeAtom, rangeAtom, scoreAtom, selectionAtom, weekOfAtom } from "./selection.ts"
+export {
+  customRangeAtom,
+  includeRepliesAtom,
+  modeAtom,
+  rangeAtom,
+  scoreAtom,
+  selectionAtom,
+  weekOfAtom
+} from "./selection.ts"
 export type { Selection, SelectionView } from "./selection.ts"
 export { SnapshotApiClient } from "./sources/index.ts"
 

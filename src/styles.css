@@ -2382,6 +2382,38 @@ a.post-card.hero:focus-visible {
   border-style: dashed;
 }
 
+.date-range {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.date-range-sep {
+  color: var(--faint);
+  font-size: 0.74rem;
+}
+
+.date-input {
+  padding: 5px 8px;
+  border: 1px solid var(--border-strong);
+  background: transparent;
+  color: var(--text);
+  color-scheme: dark;
+  font: inherit;
+  font-size: 0.74rem;
+  font-variant-numeric: tabular-nums;
+  transition: border-color 140ms ease;
+}
+
+.date-input:hover {
+  border-color: rgba(255, 255, 255, 0.32);
+}
+
+.date-input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 .range-note {
   margin: 0;
   color: var(--faint);

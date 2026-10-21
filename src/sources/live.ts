@@ -10,8 +10,14 @@ export class SnapshotApiClient extends AtomHttpApi.Service<SnapshotApiClient>()(
   httpClient: FetchHttpClient.layer
 }) {}
 
+const windowKey = (selection: Selection): string => {
+  if (selection.mode === "weekly") return `weekly:${selection.weekOf ?? "latest"}`
+  if (selection.mode === "custom") return `custom:${selection.from ?? ""}:${selection.to ?? ""}`
+  return `rolling:${selection.range}`
+}
+
 const queryKey = (selection: Selection): string =>
-  `${selection.mode === "weekly" ? `weekly:${selection.weekOf ?? "latest"}` : `rolling:${selection.range}`}:${selection.includeReplies ? "replies" : "originals"}`
+  `${windowKey(selection)}:${selection.includeReplies ? "replies" : "originals"}`
 
 export const liveSource: SnapshotSource = (selectionAtom) =>
   Atom.make((get) => {
@@ -22,6 +28,8 @@ export const liveSource: SnapshotSource = (selectionAtom) =>
           range: selection.range,
           mode: selection.mode,
           weekOf: selection.weekOf,
+          from: selection.from,
+          to: selection.to,
           includeReplies: selection.includeReplies
         },
         serializationKey: queryKey(selection)

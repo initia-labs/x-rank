@@ -6,6 +6,8 @@ import { buildWindow, isoWeekOf, recentWeeks, weekStartUtc, type WeekChoice, typ
 const rangeParam = Atom.searchParam("range", { schema: DateRange })
 const modeParam = Atom.searchParam("mode", { schema: RangeMode })
 const weekOfParam = Atom.searchParam("weekOf", { schema: Schema.String })
+const fromParam = Atom.searchParam("from", { schema: Schema.String })
+const toParam = Atom.searchParam("to", { schema: Schema.String })
 const scoreParam = Atom.searchParam("score", { schema: ScoreMetric })
 const repliesParam = Atom.searchParam("replies", { schema: Schema.Literals(["true"]) })
 
@@ -30,6 +32,20 @@ export const weekOfAtom = Atom.writable(
   }
 )
 
+export interface CustomRange {
+  readonly from: string
+  readonly to: string
+}
+
+export const customRangeAtom = Atom.writable(
+  (get) => ({ from: Option.getOrUndefined(get(fromParam)), to: Option.getOrUndefined(get(toParam)) }),
+  (ctx, range: CustomRange) => {
+    ctx.set(modeParam, Option.some("custom"))
+    ctx.set(fromParam, Option.some(range.from))
+    ctx.set(toParam, Option.some(range.to))
+  }
+)
+
 export const scoreAtom = Atom.writable(
   (get) => Option.getOrElse(get(scoreParam), () => "posts" as const),
   (ctx, score: ScoreMetric) => ctx.set(scoreParam, Option.some(score))
@@ -44,6 +60,8 @@ export interface Selection {
   readonly mode: RangeMode
   readonly range: DateRange
   readonly weekOf: string | undefined
+  readonly from: string | undefined
+  readonly to: string | undefined
   readonly score: ScoreMetric
   readonly includeReplies: boolean
 }
@@ -52,6 +70,7 @@ export const selectionAtom: Atom.Atom<Selection> = Atom.make((get) => ({
   mode: get(modeAtom),
   range: get(rangeAtom),
   weekOf: get(weekOfAtom),
+  ...get(customRangeAtom),
   score: get(scoreAtom),
   includeReplies: get(includeRepliesAtom)
 }))
@@ -70,7 +89,7 @@ export const selectionViewFor = (selection: Selection, capturedAtMs: number): Se
   const weekChoices = recentWeeks(capturedAtMs, WEEKLY_LOOKBACK)
   const currentWeekIso = isoWeekOf(weekStartUtc(capturedAtMs))
   const defaultWeekIso = weekChoices[1]?.iso ?? weekChoices[0]?.iso ?? currentWeekIso
-  const window = buildWindow(selection.mode, selection.range, selection.weekOf, capturedAtMs)
+  const window = buildWindow(selection, capturedAtMs)
   return {
     ...selection,
     window,

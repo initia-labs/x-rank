@@ -8,7 +8,9 @@ import { CliOutput, Command, Flag } from "effect/unstable/cli"
 import { SocialMetricsSnapshot } from "../src/api.ts"
 import { buildWindow, DAY_MS, isoWeekOf, ranges, recentWeeks, weekStartUtc } from "../src/metrics.ts"
 import type { DateRange, RangeMode } from "../src/api.ts"
-import { buildSnapshot } from "../server/aggregate.ts"
+import { buildSnapshot } from "../src/aggregate.ts"
+import { Dataset } from "../src/dataset.ts"
+import { loadDataset } from "../server/aggregate.ts"
 import { AppConfig, AppConfigLive, accountConfigs } from "../server/config.ts"
 import { CostTrackerLive, formatUsd, PRICE_PER_POST_READ_USD, PRICE_PER_USER_READ_USD } from "../server/cost.ts"
 import { Db, DbLive, costByDay, costSince, lastRefresh } from "../server/db.ts"
@@ -63,31 +65,30 @@ const runBackfill = (days: number) =>
   })
 
 const writeOneSnapshot = (
-  db: Db,
-  capturedAt: number,
+  dataset: Dataset,
   mode: RangeMode,
   range: DateRange,
   weekOf: string | undefined,
   filePath: string,
   includeReplies = false
-) =>
-  Effect.gen(function* () {
-    const window = buildWindow(mode, range, weekOf, capturedAt)
-    const snapshot = yield* buildSnapshot(db, window, capturedAt, includeReplies)
-    const encoded = Schema.encodeSync(SocialMetricsSnapshot)(snapshot)
-    mkdirSync(dirname(filePath), { recursive: true })
-    writeFileSync(filePath, JSON.stringify(encoded))
-    return snapshot
-  })
+) => {
+  const window = buildWindow({ mode, range, weekOf }, dataset.capturedAt)
+  const snapshot = buildSnapshot(dataset, window, includeReplies)
+  const encoded = Schema.encodeSync(SocialMetricsSnapshot)(snapshot)
+  mkdirSync(dirname(filePath), { recursive: true })
+  writeFileSync(filePath, JSON.stringify(encoded))
+  return snapshot
+}
 
 const writeSnapshot = Effect.gen(function* () {
   const db = yield* Db
   const last = yield* lastRefresh(db)
   if (!last) return yield* Effect.die(new Error("no data in DB; run `xrank refresh` first"))
-  const capturedAt = last.captured_at
+  const dataset = yield* loadDataset(db, last.captured_at)
+  const capturedAt = dataset.capturedAt
 
   // Default snapshot.json keeps the existing single-file contract (rolling 7d).
-  const defaultSnapshot = yield* writeOneSnapshot(db, capturedAt, "rolling", "7d", undefined, OUTPUT_PATH)
+  const defaultSnapshot = writeOneSnapshot(dataset, "rolling", "7d", undefined, OUTPUT_PATH)
   yield* Console.log(
     `wrote ${OUTPUT_PATH} · ${defaultSnapshot.accounts.length} accounts · captured ${defaultSnapshot.capturedAt}`
   )
@@ -98,7 +99,7 @@ const writeSnapshot = Effect.gen(function* () {
     for (const range of ROLLING_RANGES) {
       const suffix = includeReplies ? "-with-replies" : ""
       const path = `${SNAPSHOT_DIR}/rolling-${range}${suffix}.json`
-      yield* writeOneSnapshot(db, capturedAt, "rolling", range, undefined, path, includeReplies)
+      writeOneSnapshot(dataset, "rolling", range, undefined, path, includeReplies)
       yield* Console.log(`  · ${path}`)
     }
   }
@@ -107,7 +108,7 @@ const writeSnapshot = Effect.gen(function* () {
     for (const week of weeks) {
       const suffix = includeReplies ? "-with-replies" : ""
       const path = `${SNAPSHOT_DIR}/weekly-${week.iso}${suffix}.json`
-      yield* writeOneSnapshot(db, capturedAt, "weekly", "7d", week.iso, path, includeReplies)
+      writeOneSnapshot(dataset, "weekly", "7d", week.iso, path, includeReplies)
       yield* Console.log(`  · ${path}`)
     }
   }
@@ -118,6 +119,8 @@ const writeSnapshot = Effect.gen(function* () {
     weeks: weeks.map((w) => ({ iso: w.iso, inProgress: w.inProgress })),
     defaultWeekIso: weeks[1]?.iso ?? weeks[0]?.iso ?? isoWeekOf(weekStartUtc(capturedAt))
   }
+  writeFileSync(`${SNAPSHOT_DIR}/dataset.json`, JSON.stringify(Schema.encodeSync(Dataset)(dataset)))
+  yield* Console.log(`  · ${SNAPSHOT_DIR}/dataset.json`)
   writeFileSync(`${SNAPSHOT_DIR}/manifest.json`, JSON.stringify(manifest))
   yield* Console.log(`  · ${SNAPSHOT_DIR}/manifest.json`)
 })

@@ -1,6 +1,6 @@
 import { useAtom } from "@effect/atom-react"
 import type { DateRange } from "../api.ts"
-import { includeRepliesAtom, modeAtom, rangeAtom, scoreAtom, weekOfAtom } from "../atoms.ts"
+import { customRangeAtom, includeRepliesAtom, modeAtom, rangeAtom, scoreAtom, weekOfAtom } from "../atoms.ts"
 import { ranges } from "../metrics.ts"
 import type { DashboardModel } from "../model.ts"
 import { Hint } from "./parts.tsx"
@@ -11,7 +11,8 @@ export function RangeControls({ dashboard }: { readonly dashboard: DashboardMode
   const [, setWeekOf] = useAtom(weekOfAtom)
   const [score, setScore] = useAtom(scoreAtom)
   const [includeReplies, setIncludeReplies] = useAtom(includeRepliesAtom)
-  const { weekChoices, currentWeekIso, selectedWeekIso, inProgress } = dashboard
+  const [, setCustomRange] = useAtom(customRangeAtom)
+  const { weekChoices, currentWeekIso, selectedWeekIso, inProgress, customRange } = dashboard
 
   return (
     <section className="range-controls">
@@ -21,8 +22,29 @@ export function RangeControls({ dashboard }: { readonly dashboard: DashboardMode
           <div className="range-modes" role="group" aria-label="Range mode">
             <ModeButton active={mode === "rolling"} label="Rolling" onClick={() => setMode("rolling")} />
             <ModeButton active={mode === "weekly"} label="Weekly (Sun–Sun)" onClick={() => setMode("weekly")} />
+            <ModeButton active={mode === "custom"} label="Custom" onClick={() => setMode("custom")} />
           </div>
-          {mode === "rolling" ? (
+          {mode === "custom" ? (
+            <div className="date-range" role="group" aria-label="Custom range">
+              <DateInput
+                label="From"
+                max={customRange.to}
+                min={customRange.min}
+                onChange={(from) => setCustomRange({ from, to: customRange.to })}
+                value={customRange.from}
+              />
+              <span aria-hidden="true" className="date-range-sep">
+                →
+              </span>
+              <DateInput
+                label="To"
+                max={customRange.max}
+                min={customRange.from}
+                onChange={(to) => setCustomRange({ from: customRange.from, to })}
+                value={customRange.to}
+              />
+            </div>
+          ) : mode === "rolling" ? (
             <div className="range-chips" role="group" aria-label="Rolling window">
               {ranges.map((r) => (
                 <ChipButton
@@ -56,6 +78,12 @@ export function RangeControls({ dashboard }: { readonly dashboard: DashboardMode
         </div>
         {mode === "weekly" && inProgress && (
           <p className="range-note">This week is still in progress; comparisons against prior weeks are partial.</p>
+        )}
+        {mode === "custom" && (
+          <p className="range-note">
+            Dates are UTC. Compared against the {dashboard.windowDays === 1 ? "day" : `${dashboard.windowDays} days`}{" "}
+            before.{inProgress ? " The last day is still in progress." : ""}
+          </p>
         )}
       </div>
       <div className="range-divider" aria-hidden="true" />
@@ -98,6 +126,35 @@ function ModeButton({
     <button aria-pressed={active} className={active ? "mode-btn active" : "mode-btn"} onClick={onClick} type="button">
       {label}
     </button>
+  )
+}
+
+function DateInput({
+  label,
+  max,
+  min,
+  onChange,
+  value
+}: {
+  readonly label: string
+  readonly max: string
+  readonly min: string
+  readonly onChange: (value: string) => void
+  readonly value: string
+}) {
+  return (
+    <input
+      aria-label={label}
+      className="date-input"
+      max={max}
+      min={min}
+      onChange={(event) => {
+        const next = event.currentTarget.value
+        if (next && next >= min && next <= max) onChange(next)
+      }}
+      type="date"
+      value={value}
+    />
   )
 }
 
